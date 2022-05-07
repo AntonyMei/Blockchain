@@ -1,6 +1,7 @@
 package basic
 
-const InitialChainDifficulty = 12
+// InitialChainDifficulty / 4 = # of zeros at hash head
+const InitialChainDifficulty = 16
 
 type BlockChain struct {
 	BlockList       []*Block
