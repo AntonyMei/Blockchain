@@ -17,7 +17,7 @@ func CreateBlock(_data string, _prevHash []byte, _difficulty int) *Block {
 	newBlock := &Block{PrevHash: _prevHash, Hash: []byte{}, Data: []byte(_data),
 		Nonce: 0, Difficulty: _difficulty}
 	pow := pow2.CreateProofOfWork(newBlock)
-	nonce, hash := pow.GenerateNonce()
+	nonce, hash := pow.GenerateNonceHash()
 	newBlock.Nonce = nonce
 	newBlock.Hash = hash
 	return newBlock

@@ -22,7 +22,7 @@ func CreateProofOfWork(block *basic.Block) *ProofOfWork {
 	return pow
 }
 
-func (pow *ProofOfWork) GenerateNonce() (int, []byte) {
+func (pow *ProofOfWork) GenerateNonceHash() (int, []byte) {
 	// return nonce, hash
 	var intHash big.Int
 	var hash [32]byte
