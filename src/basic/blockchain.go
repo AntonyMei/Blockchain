@@ -5,7 +5,7 @@ type BlockChain struct {
 }
 
 func (bc *BlockChain) AddBlock(data string) {
-	newBlock := CreateBlock(data, bc.BlockList[len(bc.BlockList)-1].PrevHash)
+	newBlock := CreateBlock(data, bc.BlockList[len(bc.BlockList)-1].Hash)
 	bc.BlockList = append(bc.BlockList, newBlock)
 }
 
