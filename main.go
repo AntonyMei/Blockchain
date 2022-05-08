@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/AntonyMei/Blockchain/src/basic"
+	"github.com/AntonyMei/Blockchain/src/blockchain"
+	"github.com/AntonyMei/Blockchain/src/blocks"
 	"strconv"
 )
 
 func main() {
 	println("Blockchain Chapter 2")
 	// create a chain
-	chain := basic.CreateBlockChain()
+	chain := blockchain.CreateBlockChain()
 	chain.AddBlock("first block after genesis")
 	chain.AddBlock("second block after genesis")
 	chain.AddBlock("third block after genesis")
@@ -22,7 +23,7 @@ func main() {
 		fmt.Printf("nonce: %v\n", block.Nonce)
 		fmt.Printf("nonce: %v\n", block.Difficulty)
 
-		pow := basic.CreateProofOfWork(block)
+		pow := blocks.CreateProofOfWork(block)
 		fmt.Printf("Pow validated: %s\n", strconv.FormatBool(pow.ValidateNonce()))
 		fmt.Println()
 	}
