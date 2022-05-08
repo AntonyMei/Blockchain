@@ -2,16 +2,11 @@ package blockchain
 
 import (
 	"fmt"
+	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/blocks"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/dgraph-io/badger"
 )
-
-// InitialChainDifficulty = #zeros at hash head * 4
-const InitialChainDifficulty = 16
-
-// PersistentStoragePath is where we store the chain on disk
-const PersistentStoragePath = "./tmp/blocks"
 
 type BlockChain struct {
 	// blockchain is stored in badger database (k-v database)
@@ -23,7 +18,7 @@ type BlockChain struct {
 
 func InitBlockChain() *BlockChain {
 	// open db connection
-	var options = badger.DefaultOptions(PersistentStoragePath)
+	var options = badger.DefaultOptions(config.PersistentStoragePath)
 	database, err := badger.Open(options)
 	utils.Handle(err)
 
@@ -33,7 +28,7 @@ func InitBlockChain() *BlockChain {
 		if err == badger.ErrKeyNotFound {
 			// no chain in database, create a new one
 			fmt.Println("Initiating a new blockchain...")
-			genesis := blocks.Genesis(InitialChainDifficulty)
+			genesis := blocks.Genesis(config.InitialChainDifficulty)
 			err = txn.Set(genesis.Hash, genesis.Serialize())
 			utils.Handle(err)
 			err = txn.Set([]byte("lasthash"), genesis.Hash)
@@ -43,7 +38,7 @@ func InitBlockChain() *BlockChain {
 	})
 	utils.Handle(err)
 
-	blockchain := BlockChain{Database: database, ChainDifficulty: InitialChainDifficulty}
+	blockchain := BlockChain{Database: database, ChainDifficulty: config.InitialChainDifficulty}
 	return &blockchain
 }
 
