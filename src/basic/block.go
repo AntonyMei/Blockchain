@@ -1,5 +1,11 @@
 package basic
 
+import (
+	"bytes"
+	"encoding/gob"
+	"github.com/AntonyMei/Blockchain/src/utils"
+)
+
 type Block struct {
 	// basic
 	PrevHash []byte
@@ -23,4 +29,20 @@ func CreateBlock(_data string, _prevHash []byte, _difficulty int) *Block {
 
 func Genesis(_difficulty int) *Block {
 	return CreateBlock("Genesis", []byte{}, _difficulty)
+}
+
+func (b *Block) Serialize() []byte {
+	// serialize a block into byte stream
+	var result bytes.Buffer
+	var encoder = gob.NewEncoder(&result)
+	utils.Handle(encoder.Encode(b))
+	return result.Bytes()
+}
+
+func Deserialize(stream []byte) *Block {
+	// deserialize byte stream from block
+	var block Block
+	var decoder = gob.NewDecoder(bytes.NewReader(stream))
+	utils.Handle(decoder.Decode(&block))
+	return &block
 }
