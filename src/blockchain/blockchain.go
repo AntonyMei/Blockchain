@@ -28,7 +28,7 @@ func InitBlockChain() *BlockChain {
 	utils.Handle(err)
 
 	// create a new blockchain if nothing exists
-	_ = database.Update(func(txn *badger.Txn) error {
+	err = database.Update(func(txn *badger.Txn) error {
 		_, err := txn.Get([]byte("lasthash"))
 		if err == badger.ErrKeyNotFound {
 			// no chain in database, create a new one
@@ -41,12 +41,32 @@ func InitBlockChain() *BlockChain {
 		}
 		return nil
 	})
+	utils.Handle(err)
 
 	blockchain := BlockChain{Database: database, ChainDifficulty: InitialChainDifficulty}
 	return &blockchain
 }
 
 func (bc *BlockChain) AddBlock(data string) {
-	//newBlock := blocks.CreateBlock(data, bc.BlockList[len(bc.BlockList)-1].Hash, bc.ChainDifficulty)
-	//bc.BlockList = append(bc.BlockList, newBlock)
+	// add block should be a transaction
+	err := bc.Database.Update(func(txn *badger.Txn) error {
+		// get last hash from database
+		var lastHash []byte
+		item, err := txn.Get([]byte("lasthash"))
+		utils.Handle(err)
+		err = item.Value(func(val []byte) error {
+			lastHash = val
+			return nil
+		})
+		utils.Handle(err)
+
+		// create new block and write into db
+		newBlock := blocks.CreateBlock(data, lastHash, bc.ChainDifficulty)
+		err = txn.Set(newBlock.Hash, newBlock.Serialize())
+		utils.Handle(err)
+		err = txn.Set([]byte("lasthash"), newBlock.Hash)
+		utils.Handle(err)
+		return nil
+	})
+	utils.Handle(err)
 }
