@@ -16,7 +16,6 @@ const PersistentStoragePath = "./tmp/blocks"
 type BlockChain struct {
 	// blockchain is stored in badger database (k-v database)
 	// key: hash of block, value: serialized block
-	LastHash []byte
 	Database *badger.DB
 	// proof of difficulty
 	ChainDifficulty int
@@ -28,11 +27,9 @@ func InitBlockChain() *BlockChain {
 	database, err := badger.Open(options)
 	utils.Handle(err)
 
-	// load blockchain / create new one if not exist
-	// we only need lasthash, which is a pointer to current chain head
-	var lastHash []byte
+	// create a new blockchain if nothing exists
 	_ = database.Update(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte("lasthash"))
+		_, err := txn.Get([]byte("lasthash"))
 		if err == badger.ErrKeyNotFound {
 			// no chain in database, create a new one
 			fmt.Println("Initiating a new blockchain...")
@@ -41,20 +38,11 @@ func InitBlockChain() *BlockChain {
 			utils.Handle(err)
 			err = txn.Set([]byte("lasthash"), genesis.Hash)
 			utils.Handle(err)
-			lastHash = genesis.Hash
-			return nil
-		} else {
-			// a chain is found, get last value
-			err = item.Value(func(val []byte) error {
-				lastHash = val
-				return nil
-			})
-			utils.Handle(err)
-			return nil
 		}
+		return nil
 	})
 
-	blockchain := BlockChain{LastHash: lastHash, Database: database, ChainDifficulty: InitialChainDifficulty}
+	blockchain := BlockChain{Database: database, ChainDifficulty: InitialChainDifficulty}
 	return &blockchain
 }
 
