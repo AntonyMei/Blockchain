@@ -15,7 +15,7 @@ type TxOutput struct {
 	PubKey string
 }
 
-func (txo *TxOutput) CanUnlock(data string) bool {
+func (txo *TxOutput) CanBeUnlocked(data string) bool {
 	return txo.PubKey == data
 }
 

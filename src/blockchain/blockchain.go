@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/blocks"
@@ -69,4 +70,51 @@ func (bc *BlockChain) AddBlock(data string, txList []*transaction.Transaction) {
 		return nil
 	})
 	utils.Handle(err)
+}
+
+func (bc *BlockChain) FindUnspentTransactions(address string) []transaction.Transaction {
+	// initialize
+	var unspentTxs []transaction.Transaction
+	spentTxMap := make(map[string][]int)
+	bcIterator := bc.Iterator()
+
+	// iterator through the chain to find unspent transactions
+	for {
+		// read block from chain
+		block := bcIterator.GetVal()
+		bcIterator.Next()
+
+		// check each transaction in the list
+		for _, tx := range block.TransactionList {
+			txID := hex.EncodeToString(tx.TxID)
+
+		Outputs:
+			// check each TxOutput
+			for outIdx, out := range tx.TxOutputList {
+				if spentTxMap[txID] != nil {
+					for _, spentOutIdx := range spentTxMap[txID] {
+						if spentOutIdx == outIdx {
+							continue Outputs
+						}
+					}
+				}
+				if out.CanBeUnlocked(address) {
+					unspentTxs = append(unspentTxs, *tx)
+				}
+			}
+			// mark all its inputs as spent
+			if tx.IsCoinbase() == false {
+				for _, in := range tx.TxInputList {
+					if in.CanUnlock(address) {
+						inTxID := hex.EncodeToString(in.SourceTxID)
+						spentTxMap[inTxID] = append(spentTxMap[inTxID], in.TxOutputIdx)
+					}
+				}
+			}
+			if len(block.PrevHash) == 0 {
+				break
+			}
+		}
+		return unspentTxs
+	}
 }
