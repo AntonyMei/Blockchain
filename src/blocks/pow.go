@@ -27,6 +27,7 @@ func (pow *ProofOfWorkWrapper) GenerateNonceHash() (int, []byte) {
 	var hash [32]byte
 	for nonce := 0; nonce < math.MaxInt64; {
 		powData := bytes.Join([][]byte{pow.Block.PrevHash, pow.Block.Data,
+			pow.Block.GetTransactionsHash(),
 			utils.Int2Hex(int64(nonce)),
 			utils.Int2Hex(int64(pow.Block.Difficulty))}, []byte{})
 		hash = sha256.Sum256(powData)
@@ -44,6 +45,7 @@ func (pow *ProofOfWorkWrapper) ValidateNonce() bool {
 	// check that nonce can really make initial bits of hash value 0
 	var intHash big.Int
 	powData := bytes.Join([][]byte{pow.Block.PrevHash, pow.Block.Data,
+		pow.Block.GetTransactionsHash(),
 		utils.Int2Hex(int64(pow.Block.Nonce)),
 		utils.Int2Hex(int64(pow.Block.Difficulty))}, []byte{})
 	hash := sha256.Sum256(powData)

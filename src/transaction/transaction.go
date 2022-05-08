@@ -8,34 +8,34 @@ import (
 	"github.com/AntonyMei/Blockchain/src/utils"
 )
 
-type TxRecord struct {
+type TxOutput struct {
 	// Value: number of coins used
 	// PubKey: TODO: finish this
 	Value  int
 	PubKey string
 }
 
-func (record *TxRecord) CanUnlock(data string) bool {
-	return record.PubKey == data
+func (txo *TxOutput) CanUnlock(data string) bool {
+	return txo.PubKey == data
 }
 
-type TxSource struct {
+type TxInput struct {
 	// SourceTxID: ID of source Transaction
-	// RecordIdx: index of source TxRecord in source Transaction
+	// TxOutputIdx: index of source TxOutput in source Transaction
 	// Sig: TODO: finish this
-	SourceTxID []byte
-	RecordIdx  int
-	Sig        string
+	SourceTxID  []byte
+	TxOutputIdx int
+	Sig         string
 }
 
-func (source *TxSource) CanUnlock(data string) bool {
+func (source *TxInput) CanUnlock(data string) bool {
 	return source.Sig == data
 }
 
 type Transaction struct {
 	TxID         []byte
-	SourceList   []TxSource
-	TxRecordList []TxRecord
+	TxInputList  []TxInput
+	TxOutputList []TxOutput
 }
 
 func (tx *Transaction) SetID() {
@@ -51,14 +51,14 @@ func (tx *Transaction) SetID() {
 
 func (tx *Transaction) IsCoinbase() bool {
 	// Check whether a tx is coinbase tx
-	return len(tx.SourceList) == 1 && len(tx.SourceList[0].SourceTxID) == 0 && tx.SourceList[0].RecordIdx == -1
+	return len(tx.TxInputList) == 1 && len(tx.TxInputList[0].SourceTxID) == 0 && tx.TxInputList[0].TxOutputIdx == -1
 }
 
-func CoinbaseTx(toAddress string, data string) *Transaction {
-	// coinbase transaction has no source
-	source := TxSource{[]byte{}, -1, data}
-	record := TxRecord{config.MiningReward, toAddress}
-	transaction := Transaction{nil, []TxSource{source},
-		[]TxRecord{record}}
+func CoinbaseTx(minerAddr string, data string) *Transaction {
+	// coinbase transaction has no input
+	input := TxInput{[]byte{}, -1, data}
+	output := TxOutput{config.MiningReward, minerAddr}
+	transaction := Transaction{nil, []TxInput{input},
+		[]TxOutput{output}}
 	return &transaction
 }

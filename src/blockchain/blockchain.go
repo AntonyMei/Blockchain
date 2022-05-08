@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/blocks"
+	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/dgraph-io/badger"
 )
@@ -16,7 +17,7 @@ type BlockChain struct {
 	ChainDifficulty int
 }
 
-func InitBlockChain() *BlockChain {
+func InitBlockChain(genesisMinerAddr string) *BlockChain {
 	// open db connection
 	var options = badger.DefaultOptions(config.PersistentStoragePath)
 	database, err := badger.Open(options)
@@ -28,11 +29,15 @@ func InitBlockChain() *BlockChain {
 		if err == badger.ErrKeyNotFound {
 			// no chain in database, create a new one
 			fmt.Println("Initiating a new blockchain...")
-			genesis := blocks.Genesis(config.InitialChainDifficulty)
+			coinbaseTx := transaction.CoinbaseTx(genesisMinerAddr, config.GenesisTxData)
+			genesis := blocks.Genesis(coinbaseTx, config.InitialChainDifficulty)
 			err = txn.Set(genesis.Hash, genesis.Serialize())
 			utils.Handle(err)
 			err = txn.Set([]byte("lasthash"), genesis.Hash)
 			utils.Handle(err)
+		} else {
+			// there exists a blockchain already
+			fmt.Println("Continuing from saved blockchain...")
 		}
 		return nil
 	})
@@ -42,8 +47,8 @@ func InitBlockChain() *BlockChain {
 	return &blockchain
 }
 
-func (bc *BlockChain) AddBlock(data string) {
-	// add block should be a transaction
+func (bc *BlockChain) AddBlock(data string, txList []*transaction.Transaction) {
+	// add block should be a database transaction
 	err := bc.Database.Update(func(txn *badger.Txn) error {
 		// get last hash from database
 		var lastHash []byte
@@ -56,7 +61,7 @@ func (bc *BlockChain) AddBlock(data string) {
 		utils.Handle(err)
 
 		// create new block and write into db
-		newBlock := blocks.CreateBlock(data, lastHash, bc.ChainDifficulty)
+		newBlock := blocks.CreateBlock(data, txList, lastHash, bc.ChainDifficulty)
 		err = txn.Set(newBlock.Hash, newBlock.Serialize())
 		utils.Handle(err)
 		err = txn.Set([]byte("lasthash"), newBlock.Hash)

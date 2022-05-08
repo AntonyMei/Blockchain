@@ -2,33 +2,37 @@ package blocks
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/gob"
+	"github.com/AntonyMei/Blockchain/config"
+	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 )
 
 type Block struct {
 	// basic
-	PrevHash []byte
-	Hash     []byte
-	Data     []byte
+	PrevHash        []byte
+	Hash            []byte
+	Data            []byte
+	TransactionList []*transaction.Transaction
 	// proof of work
 	Nonce      int
 	Difficulty int
 }
 
-func CreateBlock(_data string, _prevHash []byte, _difficulty int) *Block {
+func CreateBlock(_data string, txList []*transaction.Transaction, _prevHash []byte, _difficulty int) *Block {
 	// create block with given data and difficulty
 	newBlock := &Block{PrevHash: _prevHash, Hash: []byte{}, Data: []byte(_data),
-		Nonce: 0, Difficulty: _difficulty}
+		TransactionList: txList, Nonce: 0, Difficulty: _difficulty}
 	pow := CreateProofOfWork(newBlock)
 	nonce, hash := pow.GenerateNonceHash()
 	newBlock.Nonce = nonce
-	newBlock.Hash = hash
+	newBlock.Hash = hash[:]
 	return newBlock
 }
 
-func Genesis(_difficulty int) *Block {
-	return CreateBlock("Genesis", []byte{}, _difficulty)
+func Genesis(coinbaseTx *transaction.Transaction, _difficulty int) *Block {
+	return CreateBlock(config.GenesisData, []*transaction.Transaction{coinbaseTx}, []byte{}, _difficulty)
 }
 
 func (b *Block) Serialize() []byte {
@@ -45,4 +49,16 @@ func Deserialize(stream []byte) *Block {
 	var decoder = gob.NewDecoder(bytes.NewReader(stream))
 	utils.Handle(decoder.Decode(&block))
 	return &block
+}
+
+func (b *Block) GetTransactionsHash() []byte {
+	// gather hash value of all transactions, which is their ID
+	var txHashList [][]byte
+	for _, tx := range b.TransactionList {
+		txHashList = append(txHashList, tx.TxID)
+	}
+
+	// hash the list to one final hash
+	finalHash := sha256.Sum256(bytes.Join(txHashList, []byte{}))
+	return finalHash[:]
 }
