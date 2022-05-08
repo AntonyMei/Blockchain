@@ -16,13 +16,15 @@ func main() {
 	chain.AddBlock("third block after genesis")
 
 	// print info
-	for iterator := chain.Iterator(); iterator.Next(); {
+	hasNext := true
+	for iterator := chain.Iterator(); hasNext; {
 		block := iterator.GetVal()
+		hasNext = iterator.Next()
 		fmt.Printf("Previous hash: %x\n", block.PrevHash)
 		fmt.Printf("hash: %x\n", block.Hash)
 		fmt.Printf("data: %s\n", block.Data)
 		fmt.Printf("nonce: %v\n", block.Nonce)
-		fmt.Printf("nonce: %v\n", block.Difficulty)
+		fmt.Printf("difficulty: %v\n", block.Difficulty)
 
 		pow := blocks.CreateProofOfWork(block)
 		fmt.Printf("Pow validated: %s\n", strconv.FormatBool(pow.ValidateNonce()))
