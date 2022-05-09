@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"fmt"
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/utils"
 )
@@ -19,6 +20,10 @@ func (txo *TxOutput) CanBeUnlocked(addr string) bool {
 	return txo.PubKey == addr
 }
 
+func (txo *TxOutput) Log2Terminal() {
+	fmt.Printf("[TX Output] Value %v owned by Public Key %v.\n", txo.Value, txo.PubKey)
+}
+
 type TxInput struct {
 	// SourceTxID: ID of source Transaction
 	// TxOutputIdx: index of source TxOutput in source Transaction
@@ -30,6 +35,11 @@ type TxInput struct {
 
 func (source *TxInput) CanUnlock(addr string) bool {
 	return source.Sig == addr
+}
+
+func (source *TxInput) Log2Terminal() {
+	fmt.Printf("[TX Input] Use TXO %v of transaction %v, signed by %v.\n",
+		source.TxOutputIdx, source.SourceTxID, source.Sig)
 }
 
 type Transaction struct {
@@ -53,6 +63,16 @@ func (tx *Transaction) SetID() {
 func (tx *Transaction) IsCoinbase() bool {
 	// Check whether a tx is coinbase tx
 	return len(tx.TxInputList) == 1 && len(tx.TxInputList[0].SourceTxID) == 0 && tx.TxInputList[0].TxOutputIdx == -1
+}
+
+func (tx *Transaction) Log2Terminal() {
+	fmt.Printf("[Transaction] TxID %v\n", tx.TxID)
+	for _, input := range tx.TxInputList {
+		input.Log2Terminal()
+	}
+	for _, output := range tx.TxOutputList {
+		output.Log2Terminal()
+	}
 }
 
 func CoinbaseTx(minerAddr string, coinbaseSig string) *Transaction {
