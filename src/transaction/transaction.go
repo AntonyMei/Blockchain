@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
@@ -62,7 +63,9 @@ func (tx *Transaction) SetID() {
 
 func (tx *Transaction) IsCoinbase() bool {
 	// Check whether a tx is coinbase tx
-	return len(tx.TxInputList) == 1 && len(tx.TxInputList[0].SourceTxID) == 0 && tx.TxInputList[0].TxOutputIdx == -1
+	condition1 := len(tx.TxInputList) == 1 && len(tx.TxInputList[0].SourceTxID) == 0
+	condition2 := tx.TxInputList[0].TxOutputIdx == -1 && tx.TxInputList[0].Sig == config.CoinbaseSig
+	return condition1 && condition2
 }
 
 func (tx *Transaction) Log2Terminal() {
@@ -77,10 +80,13 @@ func (tx *Transaction) Log2Terminal() {
 }
 
 func CoinbaseTx(minerAddr string, coinbaseSig string) *Transaction {
-	// coinbase transaction has no input
+	// coinbase transaction has no input, and gives MiningReward to miner
 	input := TxInput{[]byte{}, -1, coinbaseSig}
 	output := TxOutput{config.MiningReward, minerAddr}
-	transaction := Transaction{nil, []TxInput{input},
-		[]TxOutput{output}}
+	// to identify different coinbase TXes, we add randomness to initial TxID
+	token := make([]byte, 32)
+	_, _ = rand.Read(token)
+	transaction := Transaction{token, []TxInput{input}, []TxOutput{output}}
+	transaction.SetID()
 	return &transaction
 }
