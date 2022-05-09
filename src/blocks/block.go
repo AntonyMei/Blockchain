@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"fmt"
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
@@ -61,4 +62,17 @@ func (b *Block) GetTransactionsHash() []byte {
 	// hash the list to one final hash
 	finalHash := sha256.Sum256(bytes.Join(txHashList, []byte{}))
 	return finalHash[:]
+}
+
+func (b *Block) Log2Terminal() {
+	fmt.Printf("****************************************\n")
+	fmt.Printf("[Block] %s\n", b.Data)
+	fmt.Printf("Hash: %x\n", b.Hash)
+	fmt.Printf("Previous Hash: %x\n", b.PrevHash)
+	fmt.Printf("Nonce: %v\n", b.Nonce)
+	fmt.Printf("difficulty: %v\n", b.Difficulty)
+	for _, tx := range b.TransactionList {
+		tx.Log2Terminal()
+	}
+	fmt.Printf("****************************************\n\n")
 }
