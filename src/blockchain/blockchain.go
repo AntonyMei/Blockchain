@@ -115,12 +115,12 @@ func (bc *BlockChain) FindUnspentTransactions(address string) []transaction.Tran
 					}
 				}
 			}
-			if len(block.PrevHash) == 0 {
-				break
-			}
 		}
-		return unspentTxs
+		if len(block.PrevHash) == 0 {
+			break
+		}
 	}
+	return unspentTxs
 }
 
 func (bc *BlockChain) FindUTXO(address string) []transaction.TxOutput {
