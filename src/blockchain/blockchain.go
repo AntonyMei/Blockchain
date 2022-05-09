@@ -160,11 +160,18 @@ TxLoop:
 	return accumulated, candidateUTXOSet
 }
 
-func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddr string, amount int) *transaction.Transaction {
+func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddrList []string, amountList []int) *transaction.Transaction {
+	// generate a transaction
+	// check input
+	utils.Assert(len(toAddrList) == len(amountList), "TX error: receiver and amount dimension mismatch.")
 
 	// generate a plan of spending
-	inputTotal, inputUTXOs := bc.GenerateSpendingPlan(fromAddr, amount)
-	if inputTotal < amount {
+	totalAmount := 0
+	for _, amount := range amountList {
+		totalAmount += amount
+	}
+	inputTotal, inputUTXOs := bc.GenerateSpendingPlan(fromAddr, totalAmount)
+	if inputTotal < totalAmount {
 		log.Panic("Error: Not enough funds!")
 	}
 
@@ -182,9 +189,11 @@ func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddr string, amount
 
 	// create output list for new transaction
 	var outputs []transaction.TxOutput
-	outputs = append(outputs, transaction.TxOutput{Value: amount, PubKey: toAddr})
-	if inputTotal > amount {
-		outputs = append(outputs, transaction.TxOutput{Value: inputTotal - amount, PubKey: fromAddr})
+	for idx := range toAddrList {
+		outputs = append(outputs, transaction.TxOutput{Value: amountList[idx], PubKey: toAddrList[idx]})
+	}
+	if inputTotal > totalAmount {
+		outputs = append(outputs, transaction.TxOutput{Value: inputTotal - totalAmount, PubKey: fromAddr})
 	}
 
 	// create new transaction and seal it with ID
