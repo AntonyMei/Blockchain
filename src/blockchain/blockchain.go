@@ -8,6 +8,7 @@ import (
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/dgraph-io/badger"
+	"log"
 )
 
 type BlockChain struct {
@@ -156,4 +157,37 @@ TxLoop:
 		}
 	}
 	return accumulated, candidateUTXOSet
+}
+
+func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddr string, amount int) *transaction.Transaction {
+
+	// generate a plan of spending
+	inputTotal, inputUTXOs := bc.GenerateSpendingPlan(fromAddr, amount)
+	if inputTotal < amount {
+		log.Panic("Error: Not enough funds!")
+	}
+
+	// create input list for new transaction
+	var inputs []transaction.TxInput
+	for rawTxId, OutIdxList := range inputUTXOs {
+		txID, err := hex.DecodeString(rawTxId)
+		utils.Handle(err)
+		utils.Assert(len(OutIdxList) == 0, "Multiple TXO with same address in one transaction!")
+		for _, out := range OutIdxList {
+			input := transaction.TxInput{SourceTxID: txID, TxOutputIdx: out, Sig: fromAddr}
+			inputs = append(inputs, input)
+		}
+	}
+
+	// create output list for new transaction
+	var outputs []transaction.TxOutput
+	outputs = append(outputs, transaction.TxOutput{Value: amount, PubKey: toAddr})
+	if inputTotal > amount {
+		outputs = append(outputs, transaction.TxOutput{Value: inputTotal - amount, PubKey: fromAddr})
+	}
+
+	// create new transaction and seal it with ID
+	tx := transaction.Transaction{TxInputList: inputs, TxOutputList: outputs}
+	tx.SetID()
+	return &tx
 }
