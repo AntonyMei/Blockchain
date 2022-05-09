@@ -173,7 +173,7 @@ func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddr string, amount
 	for rawTxId, OutIdxList := range inputUTXOs {
 		txID, err := hex.DecodeString(rawTxId)
 		utils.Handle(err)
-		utils.Assert(len(OutIdxList) == 0, "Multiple TXO with same address in one transaction!")
+		utils.Assert(len(OutIdxList) == 1, "Multiple TXO with same address in one transaction!")
 		for _, out := range OutIdxList {
 			input := transaction.TxInput{SourceTxID: txID, TxOutputIdx: out, Sig: fromAddr}
 			inputs = append(inputs, input)
