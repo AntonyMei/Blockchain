@@ -66,7 +66,7 @@ func (tx *Transaction) IsCoinbase() bool {
 }
 
 func (tx *Transaction) Log2Terminal() {
-	fmt.Printf("[Transaction] TxID %v\n", tx.TxID)
+	fmt.Printf("[Transaction] TxID %x\n", tx.TxID)
 	for _, input := range tx.TxInputList {
 		input.Log2Terminal()
 	}
