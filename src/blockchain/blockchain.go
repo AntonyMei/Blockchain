@@ -192,3 +192,12 @@ func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddr string, amount
 	tx.SetID()
 	return &tx
 }
+
+func (bc *BlockChain) Log2Terminal() {
+	hasNext := true
+	for iterator := bc.Iterator(); hasNext; {
+		block := iterator.GetVal()
+		hasNext = iterator.Next()
+		block.Log2Terminal()
+	}
+}

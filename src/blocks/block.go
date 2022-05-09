@@ -8,6 +8,7 @@ import (
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
+	"strconv"
 )
 
 type Block struct {
@@ -70,7 +71,9 @@ func (b *Block) Log2Terminal() {
 	fmt.Printf("Hash: %x\n", b.Hash)
 	fmt.Printf("Previous Hash: %x\n", b.PrevHash)
 	fmt.Printf("Nonce: %v\n", b.Nonce)
-	fmt.Printf("difficulty: %v\n", b.Difficulty)
+	fmt.Printf("Difficulty: %v\n", b.Difficulty)
+	pow := CreateProofOfWork(b)
+	fmt.Printf("Hash Validated: %s\n", strconv.FormatBool(pow.ValidateNonce()))
 	for _, tx := range b.TransactionList {
 		tx.Log2Terminal()
 	}
