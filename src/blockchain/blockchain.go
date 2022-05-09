@@ -73,6 +73,8 @@ func (bc *BlockChain) AddBlock(data string, txList []*transaction.Transaction) {
 }
 
 func (bc *BlockChain) FindUnspentTransactions(address string) []transaction.Transaction {
+	// This function returns all transactions that contain unspent outputs associated with address
+
 	// initialize
 	var unspentTxs []transaction.Transaction
 	spentTxMap := make(map[string][]int)
@@ -117,4 +119,18 @@ func (bc *BlockChain) FindUnspentTransactions(address string) []transaction.Tran
 		}
 		return unspentTxs
 	}
+}
+
+func (bc *BlockChain) FindUTXO(address string) []transaction.TxOutput {
+	// This function returns all UTXOs associated with address
+	var UTXOs []transaction.TxOutput
+	unspentTransactions := bc.FindUnspentTransactions(address)
+	for _, tx := range unspentTransactions {
+		for _, out := range tx.TxOutputList {
+			if out.CanBeUnlocked(address) {
+				UTXOs = append(UTXOs, out)
+			}
+		}
+	}
+	return UTXOs
 }

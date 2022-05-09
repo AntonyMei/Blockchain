@@ -15,8 +15,8 @@ type TxOutput struct {
 	PubKey string
 }
 
-func (txo *TxOutput) CanBeUnlocked(data string) bool {
-	return txo.PubKey == data
+func (txo *TxOutput) CanBeUnlocked(addr string) bool {
+	return txo.PubKey == addr
 }
 
 type TxInput struct {
@@ -28,11 +28,12 @@ type TxInput struct {
 	Sig         string
 }
 
-func (source *TxInput) CanUnlock(data string) bool {
-	return source.Sig == data
+func (source *TxInput) CanUnlock(addr string) bool {
+	return source.Sig == addr
 }
 
 type Transaction struct {
+	// Note that each address can appear at most once in the output list
 	TxID         []byte
 	TxInputList  []TxInput
 	TxOutputList []TxOutput
