@@ -134,3 +134,26 @@ func (bc *BlockChain) FindUTXO(address string) []transaction.TxOutput {
 	}
 	return UTXOs
 }
+
+func (bc *BlockChain) GenerateSpendingPlan(address string, amount int) (int, map[string][]int) {
+	// Generate a plan containing UTXOs such that the given address can use them to pay #amount to others
+	// returns the total amount and plan of UTXOs
+	var unspentTxs = bc.FindUnspentTransactions(address)
+	var accumulated = 0
+	var candidateUTXOSet = make(map[string][]int)
+
+TxLoop:
+	for _, tx := range unspentTxs {
+		txID := hex.EncodeToString(tx.TxID)
+		for outIdx, out := range tx.TxOutputList {
+			if out.CanBeUnlocked(address) {
+				accumulated += out.Value
+				candidateUTXOSet[txID] = append(candidateUTXOSet[txID], outIdx)
+				if accumulated >= amount {
+					break TxLoop
+				}
+			}
+		}
+	}
+	return accumulated, candidateUTXOSet
+}
