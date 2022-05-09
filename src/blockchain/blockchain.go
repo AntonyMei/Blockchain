@@ -202,6 +202,20 @@ func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddrList []string, 
 	return &tx
 }
 
+func (bc *BlockChain) GetBalance(address string) int {
+	// Get balance of an account
+	var unspentTxs = bc.FindUnspentTransactions(address)
+	var balance = 0
+	for _, tx := range unspentTxs {
+		for _, out := range tx.TxOutputList {
+			if out.CanBeUnlocked(address) {
+				balance += out.Value
+			}
+		}
+	}
+	return balance
+}
+
 func (bc *BlockChain) Log2Terminal() {
 	hasNext := true
 	for iterator := bc.Iterator(); hasNext; {

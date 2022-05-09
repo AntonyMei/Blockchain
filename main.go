@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 )
@@ -30,5 +31,10 @@ func main() {
 
 	// print info
 	chain.Log2Terminal()
-
+	fmt.Printf("Final Balance\n")
+	fmt.Printf("Alice: %v.\n", chain.GetBalance("Alice"))
+	fmt.Printf("Bob: %v.\n", chain.GetBalance("Bob"))
+	fmt.Printf("Charlie: %v.\n", chain.GetBalance("Charlie"))
+	fmt.Printf("David: %v.\n", chain.GetBalance("David"))
+	fmt.Printf("Eta: %v.\n", chain.GetBalance("Eta"))
 }
