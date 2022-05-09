@@ -55,9 +55,9 @@ func (tx *Transaction) IsCoinbase() bool {
 	return len(tx.TxInputList) == 1 && len(tx.TxInputList[0].SourceTxID) == 0 && tx.TxInputList[0].TxOutputIdx == -1
 }
 
-func CoinbaseTx(minerAddr string, data string) *Transaction {
+func CoinbaseTx(minerAddr string, coinbaseSig string) *Transaction {
 	// coinbase transaction has no input
-	input := TxInput{[]byte{}, -1, data}
+	input := TxInput{[]byte{}, -1, coinbaseSig}
 	output := TxOutput{config.MiningReward, minerAddr}
 	transaction := Transaction{nil, []TxInput{input},
 		[]TxOutput{output}}

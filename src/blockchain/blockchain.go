@@ -31,7 +31,7 @@ func InitBlockChain(genesisMinerAddr string) *BlockChain {
 		if err == badger.ErrKeyNotFound {
 			// no chain in database, create a new one
 			fmt.Println("Initiating a new blockchain...")
-			coinbaseTx := transaction.CoinbaseTx(genesisMinerAddr, config.GenesisTxData)
+			coinbaseTx := transaction.CoinbaseTx(genesisMinerAddr, config.CoinbaseSig)
 			genesis := blocks.Genesis(coinbaseTx, config.InitialChainDifficulty)
 			err = txn.Set(genesis.Hash, genesis.Serialize())
 			utils.Handle(err)
@@ -49,7 +49,7 @@ func InitBlockChain(genesisMinerAddr string) *BlockChain {
 	return &blockchain
 }
 
-func (bc *BlockChain) AddBlock(data string, txList []*transaction.Transaction) {
+func (bc *BlockChain) AddBlock(minerAddr string, description string, txList []*transaction.Transaction) {
 	// add block should be a database transaction
 	err := bc.Database.Update(func(txn *badger.Txn) error {
 		// get last hash from database
@@ -63,7 +63,8 @@ func (bc *BlockChain) AddBlock(data string, txList []*transaction.Transaction) {
 		utils.Handle(err)
 
 		// create new block and write into db
-		newBlock := blocks.CreateBlock(data, txList, lastHash, bc.ChainDifficulty)
+		txList = append(txList, transaction.CoinbaseTx(minerAddr, config.CoinbaseSig))
+		newBlock := blocks.CreateBlock(description, txList, lastHash, bc.ChainDifficulty)
 		err = txn.Set(newBlock.Hash, newBlock.Serialize())
 		utils.Handle(err)
 		err = txn.Set([]byte("lasthash"), newBlock.Hash)

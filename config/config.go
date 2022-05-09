@@ -11,6 +11,6 @@ const (
 
 	// GenesisData is contained in Data field of genesis block
 	GenesisData = "Genesis"
-	// GenesisTxData is contained in tx of genesis block
-	GenesisTxData = "First Transaction in Genesis"
+	// CoinbaseSig is signature of coinbase transactions
+	CoinbaseSig = "Coinbase Signature"
 )
