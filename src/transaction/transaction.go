@@ -22,7 +22,7 @@ func (txo *TxOutput) CanBeUnlocked(addr string) bool {
 }
 
 func (txo *TxOutput) Log2Terminal() {
-	fmt.Printf("[TX Output] Give %v coins to wallet %v.\n", txo.Value, txo.PubKey)
+	fmt.Printf("[TX Output] Give %v coins to account %v.\n", txo.Value, txo.PubKey)
 }
 
 type TxInput struct {
