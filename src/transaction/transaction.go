@@ -38,7 +38,7 @@ func (source *TxInput) CanUnlock(addr string) bool {
 }
 
 func (source *TxInput) Log2Terminal() {
-	fmt.Printf("[TX Input] Use TXO %v of transaction %v, signed by %v.\n",
+	fmt.Printf("[TX Input] Use TXO %v of transaction %x, signed by %v.\n",
 		source.TxOutputIdx, source.SourceTxID, source.Sig)
 }
 
@@ -73,6 +73,7 @@ func (tx *Transaction) Log2Terminal() {
 	for _, output := range tx.TxOutputList {
 		output.Log2Terminal()
 	}
+	fmt.Println()
 }
 
 func CoinbaseTx(minerAddr string, coinbaseSig string) *Transaction {
