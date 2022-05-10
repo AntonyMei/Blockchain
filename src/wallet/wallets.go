@@ -12,13 +12,14 @@ import (
 )
 
 type Wallets struct {
-	WalletMap map[string]*Wallet
+	PersonalWallets map[string]*Wallet
+	KnownAddresses  map[string][]byte
 }
 
 func InitializeWallets() (*Wallets, error) {
 	// create new wallets
 	wallets := Wallets{}
-	wallets.WalletMap = make(map[string]*Wallet)
+	wallets.PersonalWallets = make(map[string]*Wallet)
 	err := wallets.LoadFile()
 	return &wallets, err
 }
@@ -26,21 +27,29 @@ func InitializeWallets() (*Wallets, error) {
 func (ws *Wallets) CreateWallet(name string) string {
 	// returns address of that wallet
 	wallet := CreateWallet()
-	ws.WalletMap[name] = wallet
+	ws.PersonalWallets[name] = wallet
 	address := fmt.Sprintf("%s", wallet.Address())
 	return address
 }
 
-func (ws Wallets) GetWallet(name string) Wallet {
-	return *ws.WalletMap[name]
+func (ws Wallets) GetPersonalWallet(name string) Wallet {
+	return *ws.PersonalWallets[name]
 }
 
-func (ws *Wallets) GetAllAccounts() []string {
+func (ws Wallets) GetKnownAddress(name string) []byte {
+	return ws.KnownAddresses[name]
+}
+
+func (ws *Wallets) GetAllPersonalWalletNames() []string {
 	var accountNames []string
-	for name := range ws.WalletMap {
+	for name := range ws.PersonalWallets {
 		accountNames = append(accountNames, name)
 	}
 	return accountNames
+}
+
+func (ws *Wallets) GetAllKnownAddresses() map[string][]byte {
+	return ws.KnownAddresses
 }
 
 func (ws *Wallets) SaveFile() {
@@ -71,6 +80,6 @@ func (ws *Wallets) LoadFile() error {
 	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
 	err = decoder.Decode(&wallets)
 	utils.Handle(err)
-	ws.WalletMap = wallets.WalletMap
+	ws.PersonalWallets = wallets.PersonalWallets
 	return nil
 }
