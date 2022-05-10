@@ -13,4 +13,8 @@ const (
 	GenesisData = "Genesis"
 	// CoinbaseSig is signature of coinbase transactions
 	CoinbaseSig = "Coinbase Signature"
+
+	// ChecksumLength is used by wallet
+	ChecksumLength = 4
+	WalletVersion  = byte(0x00)
 )

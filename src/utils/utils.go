@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/mr-tron/base58"
 	"log"
 )
 
@@ -13,6 +14,17 @@ func Int2Hex(num int64) []byte {
 		log.Panic(err)
 	}
 	return buff.Bytes()
+}
+
+func Base58Encode(input []byte) []byte {
+	encode := base58.Encode(input)
+	return []byte(encode)
+}
+
+func Base58Decode(input []byte) []byte {
+	decode, err := base58.Decode(string(input[:]))
+	Handle(err)
+	return decode
 }
 
 func Handle(err error) {
