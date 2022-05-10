@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"github.com/AntonyMei/Blockchain/config"
@@ -75,10 +76,8 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 	utils.Handle(err)
 }
 
-func (bc *BlockChain) FindUnspentTransactions(wallet *wallet.Wallet) []transaction.Transaction {
+func (bc *BlockChain) FindUnspentTransactions(address []byte, publicKey *ecdsa.PublicKey) []transaction.Transaction {
 	// This function returns all transactions that contain unspent outputs associated with a wallet
-	address := wallet.Address()
-	publicKey := &wallet.PrivateKey.PublicKey
 
 	// initialize
 	var unspentTxs []transaction.Transaction
@@ -126,11 +125,10 @@ func (bc *BlockChain) FindUnspentTransactions(wallet *wallet.Wallet) []transacti
 	return unspentTxs
 }
 
-func (bc *BlockChain) FindUTXO(wallet *wallet.Wallet) []transaction.TxOutput {
-	address := wallet.Address()
+func (bc *BlockChain) FindUTXO(address []byte, publicKey *ecdsa.PublicKey) []transaction.TxOutput {
 	// This function returns all UTXOs associated with address
 	var UTXOs []transaction.TxOutput
-	unspentTransactions := bc.FindUnspentTransactions(wallet)
+	unspentTransactions := bc.FindUnspentTransactions(address, publicKey)
 	for _, tx := range unspentTransactions {
 		for _, out := range tx.TxOutputList {
 			if out.BelongsTo(address) {
@@ -144,7 +142,7 @@ func (bc *BlockChain) FindUTXO(wallet *wallet.Wallet) []transaction.TxOutput {
 func (bc *BlockChain) GenerateSpendingPlan(wallet *wallet.Wallet, amount int) (int, map[string][]int) {
 	// Generate a plan containing UTXOs such that the given address can use them to pay #amount to others
 	// returns the total amount and plan of UTXOs
-	var unspentTxs = bc.FindUnspentTransactions(wallet)
+	var unspentTxs = bc.FindUnspentTransactions(wallet.Address(), &wallet.PrivateKey.PublicKey)
 	var accumulated = 0
 	var candidateUTXOSet = make(map[string][]int)
 	var address = wallet.Address()
@@ -208,10 +206,9 @@ func (bc *BlockChain) GenerateTransaction(fromWallet *wallet.Wallet, toAddrList 
 	return &tx
 }
 
-func (bc *BlockChain) GetBalance(wallet *wallet.Wallet) int {
+func (bc *BlockChain) GetBalance(address []byte, publicKey *ecdsa.PublicKey) int {
 	// Get balance of an account
-	var unspentTxs = bc.FindUnspentTransactions(wallet)
-	var address = wallet.Address()
+	var unspentTxs = bc.FindUnspentTransactions(address, publicKey)
 	var balance = 0
 	for _, tx := range unspentTxs {
 		for _, out := range tx.TxOutputList {

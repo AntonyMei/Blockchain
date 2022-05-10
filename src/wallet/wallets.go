@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/elliptic"
 	"encoding/gob"
-	"fmt"
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"io/ioutil"
@@ -24,23 +23,22 @@ func InitializeWallets() (*Wallets, error) {
 	return &wallets, err
 }
 
-func (ws *Wallets) CreateWallet(name string) string {
+func (ws *Wallets) CreateWallet(name string) []byte {
 	// returns address of that wallet
 	wallet := CreateWallet()
 	ws.PersonalWallets[name] = wallet
-	address := fmt.Sprintf("%s", wallet.Address())
-	return address
+	return wallet.Address()
 }
 
-func (ws Wallets) GetPersonalWallet(name string) Wallet {
-	return *ws.PersonalWallets[name]
+func (ws Wallets) GetWallet(name string) *Wallet {
+	return ws.PersonalWallets[name]
 }
 
 func (ws Wallets) GetKnownAddress(name string) []byte {
 	return ws.KnownAddresses[name]
 }
 
-func (ws *Wallets) GetAllPersonalWalletNames() []string {
+func (ws *Wallets) GetAllWalletNames() []string {
 	var accountNames []string
 	for name := range ws.PersonalWallets {
 		accountNames = append(accountNames, name)

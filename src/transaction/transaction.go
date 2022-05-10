@@ -23,7 +23,7 @@ func (txo *TxOutput) BelongsTo(addr []byte) bool {
 }
 
 func (txo *TxOutput) Log2Terminal() {
-	fmt.Printf("[TX Output] Give %v coins to account %v.\n", txo.Value, txo.Address)
+	fmt.Printf("[TX Output] Give %v coins to account %x.\n", txo.Value, txo.Address)
 }
 
 type TxInput struct {
@@ -65,8 +65,8 @@ func (source *TxInput) Verify(publicKey *ecdsa.PublicKey) bool {
 }
 
 func (source *TxInput) Log2Terminal() {
-	fmt.Printf("[TX Input] Use TXO %v of transaction %x, signed by %v.\n",
-		source.TxOutputIdx, source.SourceTxID, source.Sig)
+	fmt.Printf("[TX Input] Use TXO %v of transaction %x.\n",
+		source.TxOutputIdx, source.SourceTxID)
 }
 
 type Transaction struct {
