@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/elliptic"
 	"encoding/gob"
+	"fmt"
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"io/ioutil"
@@ -12,6 +13,34 @@ import (
 
 type Wallets struct {
 	WalletMap map[string]*Wallet
+}
+
+func InitializeWallets() (*Wallets, error) {
+	// create new wallets
+	wallets := Wallets{}
+	wallets.WalletMap = make(map[string]*Wallet)
+	err := wallets.LoadFile()
+	return &wallets, err
+}
+
+func (ws *Wallets) CreateWallet(name string) string {
+	// returns address of that wallet
+	wallet := CreateWallet()
+	ws.WalletMap[name] = wallet
+	address := fmt.Sprintf("%s", wallet.Address())
+	return address
+}
+
+func (ws Wallets) GetWallet(name string) Wallet {
+	return *ws.WalletMap[name]
+}
+
+func (ws *Wallets) GetAllAccounts() []string {
+	var accountNames []string
+	for name := range ws.WalletMap {
+		accountNames = append(accountNames, name)
+	}
+	return accountNames
 }
 
 func (ws *Wallets) SaveFile() {
