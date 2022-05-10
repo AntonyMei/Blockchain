@@ -83,5 +83,6 @@ func (ws *Wallets) LoadFile() error {
 	err = decoder.Decode(&wallets)
 	utils.Handle(err)
 	ws.PersonalWalletMap = wallets.PersonalWalletMap
+	ws.KnownAddressMap = wallets.KnownAddressMap
 	return nil
 }
