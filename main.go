@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	println("Transaction Test")
+	println("Wallet Test")
 	// initialize wallets
 	wallets, _ := wallet.InitializeWallets()
 	aliceAddr := wallets.CreateWallet("Alice")
