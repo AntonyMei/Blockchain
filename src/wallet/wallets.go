@@ -11,14 +11,14 @@ import (
 )
 
 type Wallets struct {
-	PersonalWallets map[string]*Wallet
-	KnownAddresses  map[string][]byte
+	PersonalWalletMap map[string]*Wallet
+	KnownAddressMap   map[string]*KnownAddress
 }
 
 func InitializeWallets() (*Wallets, error) {
 	// create new wallets
 	wallets := Wallets{}
-	wallets.PersonalWallets = make(map[string]*Wallet)
+	wallets.PersonalWalletMap = make(map[string]*Wallet)
 	err := wallets.LoadFile()
 	return &wallets, err
 }
@@ -26,28 +26,32 @@ func InitializeWallets() (*Wallets, error) {
 func (ws *Wallets) CreateWallet(name string) []byte {
 	// returns address of that wallet
 	wallet := CreateWallet()
-	ws.PersonalWallets[name] = wallet
+	ws.PersonalWalletMap[name] = wallet
 	return wallet.Address()
 }
 
-func (ws Wallets) GetWallet(name string) *Wallet {
-	return ws.PersonalWallets[name]
+func (ws *Wallets) AddWallet(name string, wallet *Wallet) {
+	ws.PersonalWalletMap[name] = wallet
 }
 
-func (ws Wallets) GetKnownAddress(name string) []byte {
-	return ws.KnownAddresses[name]
+func (ws *Wallets) AddKnownAddress(name string, knownAddress *KnownAddress) {
+	ws.KnownAddressMap[name] = knownAddress
+}
+
+func (ws Wallets) GetWallet(name string) *Wallet {
+	return ws.PersonalWalletMap[name]
+}
+
+func (ws Wallets) GetKnownAddress(name string) *KnownAddress {
+	return ws.KnownAddressMap[name]
 }
 
 func (ws *Wallets) GetAllWalletNames() []string {
 	var accountNames []string
-	for name := range ws.PersonalWallets {
+	for name := range ws.PersonalWalletMap {
 		accountNames = append(accountNames, name)
 	}
 	return accountNames
-}
-
-func (ws *Wallets) GetAllKnownAddresses() map[string][]byte {
-	return ws.KnownAddresses
 }
 
 func (ws *Wallets) SaveFile() {
@@ -78,6 +82,6 @@ func (ws *Wallets) LoadFile() error {
 	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
 	err = decoder.Decode(&wallets)
 	utils.Handle(err)
-	ws.PersonalWallets = wallets.PersonalWallets
+	ws.PersonalWalletMap = wallets.PersonalWalletMap
 	return nil
 }
