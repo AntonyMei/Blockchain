@@ -7,6 +7,7 @@ import (
 	"github.com/AntonyMei/Blockchain/src/blocks"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
+	"github.com/AntonyMei/Blockchain/src/wallet"
 	"github.com/dgraph-io/badger"
 	"log"
 )
@@ -19,7 +20,7 @@ type BlockChain struct {
 	ChainDifficulty int
 }
 
-func InitBlockChain(genesisMinerAddr string) *BlockChain {
+func InitBlockChain(genesisMinerAddr []byte) *BlockChain {
 	// open db connection
 	var options = badger.DefaultOptions(config.PersistentStoragePath)
 	database, err := badger.Open(options)
@@ -31,7 +32,7 @@ func InitBlockChain(genesisMinerAddr string) *BlockChain {
 		if err == badger.ErrKeyNotFound {
 			// no chain in database, create a new one
 			fmt.Println("Initiating a new blockchain...")
-			coinbaseTx := transaction.CoinbaseTx(genesisMinerAddr, config.CoinbaseSig)
+			coinbaseTx := transaction.CoinbaseTx(genesisMinerAddr)
 			genesis := blocks.Genesis(coinbaseTx, config.InitialChainDifficulty)
 			err = txn.Set(genesis.Hash, genesis.Serialize())
 			utils.Handle(err)
@@ -49,7 +50,7 @@ func InitBlockChain(genesisMinerAddr string) *BlockChain {
 	return &blockchain
 }
 
-func (bc *BlockChain) AddBlock(minerAddr string, description string, txList []*transaction.Transaction) {
+func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*transaction.Transaction) {
 	// add block should be a database transaction
 	err := bc.Database.Update(func(txn *badger.Txn) error {
 		// get last hash from database
@@ -63,7 +64,7 @@ func (bc *BlockChain) AddBlock(minerAddr string, description string, txList []*t
 		utils.Handle(err)
 
 		// create new block and write into db
-		txList = append(txList, transaction.CoinbaseTx(minerAddr, config.CoinbaseSig))
+		txList = append(txList, transaction.CoinbaseTx(minerAddr))
 		newBlock := blocks.CreateBlock(description, txList, lastHash, bc.ChainDifficulty)
 		err = txn.Set(newBlock.Hash, newBlock.Serialize())
 		utils.Handle(err)
@@ -74,8 +75,10 @@ func (bc *BlockChain) AddBlock(minerAddr string, description string, txList []*t
 	utils.Handle(err)
 }
 
-func (bc *BlockChain) FindUnspentTransactions(address string) []transaction.Transaction {
-	// This function returns all transactions that contain unspent outputs associated with address
+func (bc *BlockChain) FindUnspentTransactions(wallet *wallet.Wallet) []transaction.Transaction {
+	// This function returns all transactions that contain unspent outputs associated with a wallet
+	address := wallet.Address()
+	publicKey := &wallet.PrivateKey.PublicKey
 
 	// initialize
 	var unspentTxs []transaction.Transaction
@@ -102,14 +105,14 @@ func (bc *BlockChain) FindUnspentTransactions(address string) []transaction.Tran
 						}
 					}
 				}
-				if out.CanBeUnlocked(address) {
+				if out.BelongsTo(address) {
 					unspentTxs = append(unspentTxs, *tx)
 				}
 			}
 			// mark all its inputs as spent
 			if tx.IsCoinbase() == false {
 				for _, in := range tx.TxInputList {
-					if in.CanUnlock(address) {
+					if in.Verify(publicKey) {
 						inTxID := hex.EncodeToString(in.SourceTxID)
 						spentTxMap[inTxID] = append(spentTxMap[inTxID], in.TxOutputIdx)
 					}
@@ -123,13 +126,14 @@ func (bc *BlockChain) FindUnspentTransactions(address string) []transaction.Tran
 	return unspentTxs
 }
 
-func (bc *BlockChain) FindUTXO(address string) []transaction.TxOutput {
+func (bc *BlockChain) FindUTXO(wallet *wallet.Wallet) []transaction.TxOutput {
+	address := wallet.Address()
 	// This function returns all UTXOs associated with address
 	var UTXOs []transaction.TxOutput
-	unspentTransactions := bc.FindUnspentTransactions(address)
+	unspentTransactions := bc.FindUnspentTransactions(wallet)
 	for _, tx := range unspentTransactions {
 		for _, out := range tx.TxOutputList {
-			if out.CanBeUnlocked(address) {
+			if out.BelongsTo(address) {
 				UTXOs = append(UTXOs, out)
 			}
 		}
@@ -137,18 +141,19 @@ func (bc *BlockChain) FindUTXO(address string) []transaction.TxOutput {
 	return UTXOs
 }
 
-func (bc *BlockChain) GenerateSpendingPlan(address string, amount int) (int, map[string][]int) {
+func (bc *BlockChain) GenerateSpendingPlan(wallet *wallet.Wallet, amount int) (int, map[string][]int) {
 	// Generate a plan containing UTXOs such that the given address can use them to pay #amount to others
 	// returns the total amount and plan of UTXOs
-	var unspentTxs = bc.FindUnspentTransactions(address)
+	var unspentTxs = bc.FindUnspentTransactions(wallet)
 	var accumulated = 0
 	var candidateUTXOSet = make(map[string][]int)
+	var address = wallet.Address()
 
 TxLoop:
 	for _, tx := range unspentTxs {
 		txID := hex.EncodeToString(tx.TxID)
 		for outIdx, out := range tx.TxOutputList {
-			if out.CanBeUnlocked(address) {
+			if out.BelongsTo(address) {
 				accumulated += out.Value
 				candidateUTXOSet[txID] = append(candidateUTXOSet[txID], outIdx)
 				if accumulated >= amount {
@@ -160,7 +165,7 @@ TxLoop:
 	return accumulated, candidateUTXOSet
 }
 
-func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddrList []string, amountList []int) *transaction.Transaction {
+func (bc *BlockChain) GenerateTransaction(fromWallet *wallet.Wallet, toAddrList [][]byte, amountList []int) *transaction.Transaction {
 	// generate a transaction
 	// check input
 	utils.Assert(len(toAddrList) == len(amountList), "TX error: receiver and amount dimension mismatch.")
@@ -170,7 +175,7 @@ func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddrList []string, 
 	for _, amount := range amountList {
 		totalAmount += amount
 	}
-	inputTotal, inputUTXOs := bc.GenerateSpendingPlan(fromAddr, totalAmount)
+	inputTotal, inputUTXOs := bc.GenerateSpendingPlan(fromWallet, totalAmount)
 	if inputTotal < totalAmount {
 		log.Panic("Error: Not enough funds!")
 	}
@@ -182,7 +187,8 @@ func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddrList []string, 
 		utils.Handle(err)
 		utils.Assert(len(OutIdxList) == 1, "Multiple TXO with same address in one transaction!")
 		for _, out := range OutIdxList {
-			input := transaction.TxInput{SourceTxID: txID, TxOutputIdx: out, Sig: fromAddr}
+			input := transaction.TxInput{SourceTxID: txID, TxOutputIdx: out}
+			input.Sign(&fromWallet.PrivateKey)
 			inputs = append(inputs, input)
 		}
 	}
@@ -190,10 +196,10 @@ func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddrList []string, 
 	// create output list for new transaction
 	var outputs []transaction.TxOutput
 	for idx := range toAddrList {
-		outputs = append(outputs, transaction.TxOutput{Value: amountList[idx], PubKey: toAddrList[idx]})
+		outputs = append(outputs, transaction.TxOutput{Value: amountList[idx], Address: toAddrList[idx]})
 	}
 	if inputTotal > totalAmount {
-		outputs = append(outputs, transaction.TxOutput{Value: inputTotal - totalAmount, PubKey: fromAddr})
+		outputs = append(outputs, transaction.TxOutput{Value: inputTotal - totalAmount, Address: fromWallet.Address()})
 	}
 
 	// create new transaction and seal it with ID
@@ -202,13 +208,14 @@ func (bc *BlockChain) GenerateTransaction(fromAddr string, toAddrList []string, 
 	return &tx
 }
 
-func (bc *BlockChain) GetBalance(address string) int {
+func (bc *BlockChain) GetBalance(wallet *wallet.Wallet) int {
 	// Get balance of an account
-	var unspentTxs = bc.FindUnspentTransactions(address)
+	var unspentTxs = bc.FindUnspentTransactions(wallet)
+	var address = wallet.Address()
 	var balance = 0
 	for _, tx := range unspentTxs {
 		for _, out := range tx.TxOutputList {
-			if out.CanBeUnlocked(address) {
+			if out.BelongsTo(address) {
 				balance += out.Value
 			}
 		}

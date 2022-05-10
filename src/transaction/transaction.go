@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
@@ -12,30 +13,55 @@ import (
 
 type TxOutput struct {
 	// Value: number of coins used
-	// PubKey: TODO: finish this
-	Value  int
-	PubKey string
+	// Address: address of receiver
+	Value   int
+	Address []byte
 }
 
-func (txo *TxOutput) CanBeUnlocked(addr string) bool {
-	return txo.PubKey == addr
+func (txo *TxOutput) BelongsTo(addr []byte) bool {
+	return bytes.Compare(txo.Address, addr) == 0
 }
 
 func (txo *TxOutput) Log2Terminal() {
-	fmt.Printf("[TX Output] Give %v coins to account %v.\n", txo.Value, txo.PubKey)
+	fmt.Printf("[TX Output] Give %v coins to account %v.\n", txo.Value, txo.Address)
 }
 
 type TxInput struct {
 	// SourceTxID: ID of source Transaction
 	// TxOutputIdx: index of source TxOutput in source Transaction
-	// Sig: TODO: finish this
+	// Sig: signed by owner of source TXO
 	SourceTxID  []byte
 	TxOutputIdx int
 	Sig         string
 }
 
-func (source *TxInput) CanUnlock(addr string) bool {
-	return source.Sig == addr
+func (source *TxInput) Sign(privateKey *ecdsa.PrivateKey) {
+	// hash the TxInput into a byte array
+	source.Sig = ""
+	var result bytes.Buffer
+	var encoder = gob.NewEncoder(&result)
+	utils.Handle(encoder.Encode(source))
+	hashedValue := sha256.Sum256(result.Bytes())
+	// sign the hashed value with privateKey
+	signature, err := ecdsa.SignASN1(rand.Reader, privateKey, hashedValue[:])
+	utils.Handle(err)
+	source.Sig = string(signature)
+}
+
+func (source *TxInput) Verify(publicKey *ecdsa.PublicKey) bool {
+	// if input value is nil, we check whether it is coinbase signature
+	if publicKey == nil {
+		return source.Sig == config.CoinbaseSig
+	}
+	// hash a Copy of source into a byte array
+	sourceCopy := TxInput{SourceTxID: source.SourceTxID, TxOutputIdx: source.TxOutputIdx, Sig: ""}
+	var stream bytes.Buffer
+	var encoder = gob.NewEncoder(&stream)
+	utils.Handle(encoder.Encode(sourceCopy))
+	hashedValue := sha256.Sum256(stream.Bytes())
+	// check whether the signature is correct
+	result := ecdsa.VerifyASN1(publicKey, hashedValue[:], []byte(source.Sig))
+	return result
 }
 
 func (source *TxInput) Log2Terminal() {
@@ -79,9 +105,9 @@ func (tx *Transaction) Log2Terminal() {
 	fmt.Println()
 }
 
-func CoinbaseTx(minerAddr string, coinbaseSig string) *Transaction {
+func CoinbaseTx(minerAddr []byte) *Transaction {
 	// coinbase transaction has no input, and gives MiningReward to miner
-	input := TxInput{[]byte{}, -1, coinbaseSig}
+	input := TxInput{[]byte{}, -1, config.CoinbaseSig}
 	output := TxOutput{config.MiningReward, minerAddr}
 	// to identify different coinbase TXes, we add randomness to initial TxID
 	token := make([]byte, 32)
