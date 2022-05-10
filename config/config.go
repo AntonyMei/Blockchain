@@ -8,6 +8,7 @@ const (
 
 	// PersistentStoragePath is where we store the chain on disk
 	PersistentStoragePath = "./tmp/blocks"
+	WalletPath            = "./tmp/wallets.data"
 
 	// GenesisData is contained in Data field of genesis block
 	GenesisData = "Genesis"
