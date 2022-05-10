@@ -10,15 +10,28 @@ import (
 func main() {
 	println("Wallet Test")
 	// initialize wallets
-	wallets, _ := wallet.InitializeWallets()
-	aliceAddr := wallets.CreateWallet("Alice")
-	aliceWallet := wallets.GetWallet("Alice")
-	bobAddr := wallets.CreateWallet("Bob")
-	bobWallet := wallets.GetWallet("Bob")
-	charlieAddr := wallets.CreateWallet("Charlie")
-	charlieWallet := wallets.GetWallet("Charlie")
-	davidAddr := wallets.CreateWallet("David")
-	davidWallet := wallets.GetWallet("David")
+	wallets, err := wallet.InitializeWallets()
+	var aliceAddr, bobAddr, charlieAddr, davidAddr []byte
+	var aliceWallet, bobWallet, charlieWallet, davidWallet *wallet.Wallet
+	if err != nil {
+		aliceAddr = wallets.CreateWallet("Alice")
+		aliceWallet = wallets.GetWallet("Alice")
+		bobAddr = wallets.CreateWallet("Bob")
+		bobWallet = wallets.GetWallet("Bob")
+		charlieAddr = wallets.CreateWallet("Charlie")
+		charlieWallet = wallets.GetWallet("Charlie")
+		davidAddr = wallets.CreateWallet("David")
+		davidWallet = wallets.GetWallet("David")
+	} else {
+		aliceWallet = wallets.GetWallet("Alice")
+		aliceAddr = aliceWallet.Address()
+		bobWallet = wallets.GetWallet("Bob")
+		bobAddr = bobWallet.Address()
+		charlieWallet = wallets.GetWallet("Charlie")
+		charlieAddr = charlieWallet.Address()
+		davidWallet = wallets.GetWallet("David")
+		davidAddr = davidWallet.Address()
+	}
 
 	// alice starts a chain / continues from last chain
 	chain := blockchain.InitBlockChain(aliceAddr)
@@ -48,4 +61,5 @@ func main() {
 	fmt.Printf("Bob: %v.\n", chain.GetBalance(bobAddr, &bobWallet.PrivateKey.PublicKey))
 	fmt.Printf("Charlie: %v.\n", chain.GetBalance(charlieAddr, &charlieWallet.PrivateKey.PublicKey))
 	fmt.Printf("David: %v.\n", chain.GetBalance(davidAddr, &davidWallet.PrivateKey.PublicKey))
+	wallets.SaveFile()
 }
