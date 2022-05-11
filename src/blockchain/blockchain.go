@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
@@ -73,6 +74,41 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 		return nil
 	})
 	utils.Handle(err)
+}
+
+func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
+	// check if this block is genesis
+	if bytes.Compare(block.PrevHash, []byte{}) == 0 {
+		// check hash
+		pow := blocks.CreateProofOfWork(block)
+		if !pow.ValidateNonce() {
+			return utils.HashMismatch
+		}
+		// check data
+		if bytes.Compare(block.Data, []byte(config.GenesisData)) != 0 {
+			return utils.GenesisDataError
+		}
+		// check Difficulty
+		if block.Difficulty != config.InitialChainDifficulty {
+			return utils.GenesisDifficultyError
+		}
+		// check transactions
+		if len(block.TransactionList) != 1 {
+			return utils.GenesisTransactionError
+		}
+		tx := block.TransactionList[0]
+		if !tx.IsCoinbase() {
+			return utils.GenesisTransactionError
+		}
+		if bytes.Compare(tx.TxOutputList[0].Address, []byte(config.GenesisData)) != 0 {
+			return utils.GenesisTransactionError
+		}
+		return utils.Verified
+	}
+
+	// other blocks
+
+	return utils.Verified
 }
 
 func (bc *BlockChain) FindUnspentTransactions(address []byte, publicKey *ecdsa.PublicKey) []transaction.Transaction {

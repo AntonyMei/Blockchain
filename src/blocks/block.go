@@ -66,41 +66,6 @@ func (b *Block) GetTransactionsHash() []byte {
 	return finalHash[:]
 }
 
-func (b *Block) Validate() utils.BlockStatus {
-	// check if this block is genesis
-	if bytes.Compare(b.PrevHash, []byte{}) == 0 {
-		// check hash
-		pow := CreateProofOfWork(b)
-		if !pow.ValidateNonce() {
-			return utils.HashMismatch
-		}
-		// check data
-		if bytes.Compare(b.Data, []byte(config.GenesisData)) != 0 {
-			return utils.GenesisDataError
-		}
-		// check Difficulty
-		if b.Difficulty != config.InitialChainDifficulty {
-			return utils.GenesisDifficultyError
-		}
-		// check transactions
-		if len(b.TransactionList) != 1 {
-			return utils.GenesisTransactionError
-		}
-		tx := b.TransactionList[0]
-		if !tx.IsCoinbase() {
-			return utils.GenesisTransactionError
-		}
-		if bytes.Compare(tx.TxOutputList[0].Address, []byte(config.GenesisData)) != 0 {
-			return utils.GenesisTransactionError
-		}
-		return utils.Verified
-	}
-
-	// other blocks
-
-	return utils.Verified
-}
-
 func (b *Block) Log2Terminal() {
 	fmt.Printf("****************************************\n")
 	fmt.Printf("[Block] %s\n", b.Data)

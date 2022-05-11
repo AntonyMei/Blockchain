@@ -14,6 +14,7 @@ const (
 	GenesisDataError
 	GenesisDifficultyError
 	GenesisTransactionError
+	PrevBlockNotFound
 	HashMismatch
 )
 
