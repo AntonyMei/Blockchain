@@ -22,6 +22,14 @@ func main() {
 		charlieWallet = wallets.GetWallet("Charlie")
 		davidAddr = wallets.CreateWallet("David")
 		davidWallet = wallets.GetWallet("David")
+		wallets.AddKnownAddress("Alice", &wallet.KnownAddress{Address: aliceAddr,
+			PublicKey: aliceWallet.PrivateKey.PublicKey})
+		wallets.AddKnownAddress("Bob", &wallet.KnownAddress{Address: bobAddr,
+			PublicKey: bobWallet.PrivateKey.PublicKey})
+		wallets.AddKnownAddress("Charlie", &wallet.KnownAddress{Address: charlieAddr,
+			PublicKey: charlieWallet.PrivateKey.PublicKey})
+		wallets.AddKnownAddress("David", &wallet.KnownAddress{Address: davidAddr,
+			PublicKey: davidWallet.PrivateKey.PublicKey})
 	} else {
 		aliceWallet = wallets.GetWallet("Alice")
 		aliceAddr = aliceWallet.Address()
@@ -34,7 +42,7 @@ func main() {
 	}
 
 	// starts a chain / continues from last chain
-	chain := blockchain.InitBlockChain()
+	chain := blockchain.InitBlockChain(wallets)
 	// alice mines two blocks
 	chain.AddBlock(aliceAddr, "Alice 1", []*transaction.Transaction{})
 	chain.AddBlock(aliceAddr, "Alice 2", []*transaction.Transaction{})

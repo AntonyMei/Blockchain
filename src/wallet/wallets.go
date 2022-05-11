@@ -19,6 +19,7 @@ func InitializeWallets() (*Wallets, error) {
 	// create new wallets
 	wallets := Wallets{}
 	wallets.PersonalWalletMap = make(map[string]*Wallet)
+	wallets.KnownAddressMap = make(map[string]*KnownAddress)
 	err := wallets.LoadFile()
 	return &wallets, err
 }

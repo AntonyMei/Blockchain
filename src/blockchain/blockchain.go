@@ -19,23 +19,28 @@ type BlockChain struct {
 	// blockchain is stored in badger database (k-v database)
 	// key: hash of block, value: serialized block
 	Database *badger.DB
+	// Wallets: wallets of current user
+	Wallets *wallet.Wallets
 	// proof of difficulty
 	ChainDifficulty int
 }
 
-func InitBlockChain() *BlockChain {
+func InitBlockChain(wallets *wallet.Wallets) *BlockChain {
 	// open db connection
 	var options = badger.DefaultOptions(config.PersistentStoragePath)
 	database, err := badger.Open(options)
 	utils.Handle(err)
 
 	// create a new blockchain if nothing exists
+	blockchain := BlockChain{Database: database, Wallets: wallets, ChainDifficulty: config.InitialChainDifficulty}
 	err = database.Update(func(txn *badger.Txn) error {
 		_, err := txn.Get([]byte("lasthash"))
 		if err == badger.ErrKeyNotFound {
 			// no chain in database, create a new one
 			fmt.Println("Initiating a new blockchain...")
 			genesis := blocks.Genesis(config.InitialChainDifficulty)
+			verifyResult := blockchain.ValidateBlock(genesis)
+			fmt.Printf("Verify genesis: %v.\n", verifyResult.String())
 			err = txn.Set(genesis.Hash, genesis.Serialize())
 			utils.Handle(err)
 			err = txn.Set([]byte("lasthash"), genesis.Hash)
@@ -48,7 +53,6 @@ func InitBlockChain() *BlockChain {
 	})
 	utils.Handle(err)
 
-	blockchain := BlockChain{Database: database, ChainDifficulty: config.InitialChainDifficulty}
 	return &blockchain
 }
 
@@ -65,9 +69,15 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 		})
 		utils.Handle(err)
 
-		// create new block and write into db
+		// create new block
 		txList = append(txList, transaction.CoinbaseTx(minerAddr))
 		newBlock := blocks.CreateBlock(description, txList, lastHash, bc.ChainDifficulty)
+
+		// check block
+		verifyResult := bc.ValidateBlock(newBlock)
+		fmt.Printf("Verify new block: %v.\n", verifyResult.String())
+
+		// add into db
 		err = txn.Set(newBlock.Hash, newBlock.Serialize())
 		utils.Handle(err)
 		err = txn.Set([]byte("lasthash"), newBlock.Hash)
@@ -77,7 +87,8 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 	utils.Handle(err)
 }
 
-func (bc *BlockChain) ValidateBlock(block *blocks.Block, wallets *wallet.Wallets) utils.BlockStatus {
+func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
+	wallets := bc.Wallets
 	// check if this block is genesis
 	if bytes.Compare(block.PrevHash, []byte{}) == 0 {
 		// check hash
@@ -129,14 +140,14 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block, wallets *wallet.Wallets
 		return utils.HashMismatch
 	}
 	// get all UTXes before further checking on transactions
-	var allUTXOMap = make(map[string]*transaction.Transaction)
+	var allUTXOMap = make(map[string]transaction.Transaction)
 	var UTXOAddrMap = make(map[string]*wallet.KnownAddress)
 	for _, knownAddr := range wallets.KnownAddressMap {
 		tmpUTXList := bc.FindUnspentTransactions(knownAddr.Address, &knownAddr.PublicKey)
 		for _, tmpUTX := range tmpUTXList {
 			for outIdx, out := range tmpUTX.TxOutputList {
 				if out.BelongsTo(knownAddr.Address) {
-					allUTXOMap[string(tmpUTX.TxID)+strconv.Itoa(outIdx)] = &tmpUTX
+					allUTXOMap[string(tmpUTX.TxID)+strconv.Itoa(outIdx)] = tmpUTX
 					UTXOAddrMap[string(tmpUTX.TxID)+strconv.Itoa(outIdx)] = knownAddr
 				}
 			}
@@ -162,8 +173,9 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block, wallets *wallet.Wallets
 		// check each input of TX
 		inputSum := 0
 		for _, txInput := range tx.TxInputList {
-			// check whether it has been spent
-			if allUTXOMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)] == nil {
+			// check whether the source TXO exists in UTXO set
+			sourceTx, exists := allUTXOMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)]
+			if !exists {
 				return utils.SourceTXONotFound
 			}
 			// check whether the input is correctly signed
@@ -172,7 +184,6 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block, wallets *wallet.Wallets
 				return utils.WrongTXInputSignature
 			}
 			// accumulate to inputSum
-			sourceTx := allUTXOMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)]
 			inputSum += sourceTx.TxOutputList[txInput.TxOutputIdx].Value
 		}
 		// check if sum of input is equal to sum of output
