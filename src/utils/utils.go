@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/mr-tron/base58"
 	"log"
 )
@@ -75,4 +76,24 @@ func Assert(exp bool, msg string) {
 	if !exp {
 		log.Panic("Assertion failed: " + msg)
 	}
+}
+
+func Match(inputList []string, expected []string) bool {
+	if len(inputList) < len(expected) {
+		return false
+	}
+	for idx := range expected {
+		if inputList[idx] != expected[idx] {
+			return false
+		}
+	}
+	return true
+}
+
+func CheckArgumentCount(inputList []string, expected int) bool {
+	if len(inputList) != expected {
+		fmt.Printf("Expect %v arguments, got %v.\n", expected, len(inputList))
+		return false
+	}
+	return true
 }

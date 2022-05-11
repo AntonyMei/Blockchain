@@ -1,13 +1,59 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
+	"github.com/AntonyMei/Blockchain/src/cli"
 	"github.com/AntonyMei/Blockchain/src/transaction"
+	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
+	"os"
+	"strings"
 )
 
 func main() {
+	commandLine := cli.InitializeCli()
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Blockchain interactive mode, type 'Usage' for more information.")
+	for {
+		// parse input
+		fmt.Print(">>>")
+		text, _ := reader.ReadString('\n')
+		text = strings.Replace(text, "\n", "", -1)
+		rawInputList := strings.Split(text, " ")
+		var inputList []string
+		for _, input := range rawInputList {
+			if input != "" {
+				inputList = append(inputList, input)
+			}
+		}
+
+		// main loop
+		if len(inputList) == 0 {
+			continue
+		}
+		if utils.Match(inputList, []string{"exit"}) {
+			// exit
+			commandLine.Exit()
+			return
+		} else if utils.Match(inputList, []string{"create", "wallet"}) {
+			// create wallet
+			utils.CheckArgumentCount(inputList, 3)
+			commandLine.CreateWallet(inputList[2])
+		} else if utils.Match(inputList, []string{"check", "wallet"}) {
+			// check wallet
+			utils.CheckArgumentCount(inputList, 3)
+			commandLine.CheckWallet(inputList[2])
+		} else if utils.Match(inputList, []string{"check", "peer"}) {
+			// check peer
+			utils.CheckArgumentCount(inputList, 3)
+			commandLine.CheckKnownAddress(inputList[2])
+		}
+	}
+}
+
+func test() {
 	println("Wallet Test")
 	// initialize wallets
 	wallets, err := wallet.InitializeWallets()
