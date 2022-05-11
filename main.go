@@ -63,4 +63,5 @@ func main() {
 	fmt.Printf("Charlie: %v.\n", chain.GetBalance(charlieAddr, &charlieWallet.PrivateKey.PublicKey))
 	fmt.Printf("David: %v.\n", chain.GetBalance(davidAddr, &davidWallet.PrivateKey.PublicKey))
 	wallets.SaveFile()
+	chain.Exit()
 }

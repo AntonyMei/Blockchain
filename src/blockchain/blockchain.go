@@ -227,3 +227,8 @@ func (bc *BlockChain) Log2Terminal() {
 		block.Log2Terminal()
 	}
 }
+
+func (bc *BlockChain) Exit() {
+	err := bc.Database.Close()
+	utils.Handle(err)
+}
