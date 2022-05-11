@@ -14,6 +14,11 @@ const (
 	WrongGenesis
 	PrevBlockNotFound
 	HashMismatch
+	WrongTxID
+	TooManyCoinbaseTX
+	SourceTXONotFound
+	WrongTXInputSignature
+	InputSumOutputSumMismatch
 )
 
 func Int2Hex(num int64) []byte {

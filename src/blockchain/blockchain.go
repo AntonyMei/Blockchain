@@ -12,6 +12,7 @@ import (
 	"github.com/AntonyMei/Blockchain/src/wallet"
 	"github.com/dgraph-io/badger"
 	"log"
+	"strconv"
 )
 
 type BlockChain struct {
@@ -76,7 +77,7 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 	utils.Handle(err)
 }
 
-func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
+func (bc *BlockChain) ValidateBlock(block *blocks.Block, wallets *wallet.Wallets) utils.BlockStatus {
 	// check if this block is genesis
 	if bytes.Compare(block.PrevHash, []byte{}) == 0 {
 		// check hash
@@ -107,7 +108,82 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 	}
 
 	// other blocks
-
+	// check prevHash
+	var prevBlockFound bool
+	err := bc.Database.View(func(txn *badger.Txn) error {
+		_, err := txn.Get(block.PrevHash)
+		if err == badger.ErrKeyNotFound {
+			prevBlockFound = false
+		} else {
+			prevBlockFound = true
+		}
+		return nil
+	})
+	utils.Handle(err)
+	if !prevBlockFound {
+		return utils.PrevBlockNotFound
+	}
+	// check hash
+	pow := blocks.CreateProofOfWork(block)
+	if !pow.ValidateNonce() {
+		return utils.HashMismatch
+	}
+	// get all UTXes before further checking on transactions
+	var allUTXOMap = make(map[string]*transaction.Transaction)
+	var UTXOAddrMap = make(map[string]*wallet.KnownAddress)
+	for _, knownAddr := range wallets.KnownAddressMap {
+		tmpUTXList := bc.FindUnspentTransactions(knownAddr.Address, &knownAddr.PublicKey)
+		for _, tmpUTX := range tmpUTXList {
+			for outIdx, out := range tmpUTX.TxOutputList {
+				if out.BelongsTo(knownAddr.Address) {
+					allUTXOMap[string(tmpUTX.TxID)+strconv.Itoa(outIdx)] = &tmpUTX
+					UTXOAddrMap[string(tmpUTX.TxID)+strconv.Itoa(outIdx)] = knownAddr
+				}
+			}
+		}
+	}
+	// check transactions
+	coinbaseTXCount := 0
+	for _, tx := range block.TransactionList {
+		// check if it is coinbase TX
+		if tx.IsCoinbase() {
+			coinbaseTXCount += 1
+			if coinbaseTXCount > 1 {
+				return utils.TooManyCoinbaseTX
+			}
+			continue
+		}
+		// check if TxID is correct
+		txCopy := transaction.Transaction{TxInputList: tx.TxInputList, TxOutputList: tx.TxOutputList}
+		txCopy.SetID()
+		if bytes.Compare(txCopy.TxID, tx.TxID) != 0 {
+			return utils.WrongTxID
+		}
+		// check each input of TX
+		inputSum := 0
+		for _, txInput := range tx.TxInputList {
+			// check whether it has been spent
+			if allUTXOMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)] == nil {
+				return utils.SourceTXONotFound
+			}
+			// check whether the input is correctly signed
+			signer := UTXOAddrMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)]
+			if !txInput.Verify(&signer.PublicKey) {
+				return utils.WrongTXInputSignature
+			}
+			// accumulate to inputSum
+			sourceTx := allUTXOMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)]
+			inputSum += sourceTx.TxOutputList[txInput.TxOutputIdx].Value
+		}
+		// check if sum of input is equal to sum of output
+		outputSum := 0
+		for _, txOutput := range tx.TxOutputList {
+			outputSum += txOutput.Value
+		}
+		if outputSum != inputSum {
+			return utils.InputSumOutputSumMismatch
+		}
+	}
 	return utils.Verified
 }
 
