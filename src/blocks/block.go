@@ -34,8 +34,14 @@ func CreateBlock(_data string, txList []*transaction.Transaction, _prevHash []by
 }
 
 func Genesis(_difficulty int) *Block {
-	tx := transaction.CoinbaseTx([]byte(config.GenesisData))
-	return CreateBlock(config.GenesisData, []*transaction.Transaction{tx}, []byte{}, _difficulty)
+	// Genesis block is a fixed thing
+	input := transaction.TxInput{SourceTxID: []byte{}, TxOutputIdx: -1, Sig: config.CoinbaseSig}
+	output := transaction.TxOutput{Value: config.MiningReward, Address: []byte(config.GenesisData)}
+	token := make([]byte, 32)
+	tx := transaction.Transaction{TxID: token, TxInputList: []transaction.TxInput{input},
+		TxOutputList: []transaction.TxOutput{output}}
+	tx.SetID()
+	return CreateBlock(config.GenesisData, []*transaction.Transaction{&tx}, []byte{}, _difficulty)
 }
 
 func (b *Block) Serialize() []byte {
