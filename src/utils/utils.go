@@ -21,6 +21,30 @@ const (
 	InputSumOutputSumMismatch
 )
 
+func (bs BlockStatus) String() string {
+	switch bs {
+	case Verified:
+		return "Verified"
+	case WrongGenesis:
+		return "WrongGenesis"
+	case PrevBlockNotFound:
+		return "PrevBlockNotFound"
+	case HashMismatch:
+		return "HashMismatch"
+	case WrongTxID:
+		return "WrongTxID"
+	case TooManyCoinbaseTX:
+		return "TooManyCoinbaseTX"
+	case SourceTXONotFound:
+		return "SourceTXONotFound"
+	case WrongTXInputSignature:
+		return "WrongTXInputSignature"
+	case InputSumOutputSumMismatch:
+		return "InputSumOutputSumMismatch"
+	}
+	return "Unknown"
+}
+
 func Int2Hex(num int64) []byte {
 	buff := new(bytes.Buffer)
 	err := binary.Write(buff, binary.BigEndian, num)
