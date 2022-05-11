@@ -37,19 +37,28 @@ func main() {
 			// exit
 			commandLine.Exit()
 			return
-		} else if utils.Match(inputList, []string{"create", "wallet"}) {
+		} else if utils.Match(inputList, []string{"mk", "wallet"}) {
 			// create wallet
-			utils.CheckArgumentCount(inputList, 3)
+			if !utils.CheckArgumentCount(inputList, 3) {
+				continue
+			}
 			commandLine.CreateWallet(inputList[2])
-		} else if utils.Match(inputList, []string{"check", "wallet"}) {
+		} else if utils.Match(inputList, []string{"ls", "wallet"}) {
 			// check wallet
-			utils.CheckArgumentCount(inputList, 3)
+			if !utils.CheckArgumentCount(inputList, 3) {
+				continue
+			}
 			commandLine.CheckWallet(inputList[2])
-		} else if utils.Match(inputList, []string{"check", "peer"}) {
+		} else if utils.Match(inputList, []string{"ls", "peer"}) {
 			// check peer
-			utils.CheckArgumentCount(inputList, 3)
+			if !utils.CheckArgumentCount(inputList, 3) {
+				continue
+			}
 			commandLine.CheckKnownAddress(inputList[2])
+		} else {
+			fmt.Printf("Unknown command.\n")
 		}
+		fmt.Println()
 	}
 }
 

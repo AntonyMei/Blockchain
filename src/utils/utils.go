@@ -92,7 +92,7 @@ func Match(inputList []string, expected []string) bool {
 
 func CheckArgumentCount(inputList []string, expected int) bool {
 	if len(inputList) != expected {
-		fmt.Printf("Expect %v arguments, got %v.\n", expected, len(inputList))
+		fmt.Printf("Expect %v arguments, got %v instead.\n", expected, len(inputList))
 		return false
 	}
 	return true

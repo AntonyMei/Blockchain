@@ -38,12 +38,14 @@ func (cli *Cli) Exit() {
 func (cli *Cli) CreateWallet(name string) {
 	if name == "All" || name == "all" {
 		fmt.Printf("All / all is reserved name.\n")
+		return
 	}
 	if tmp := cli.Wallets.GetWallet(name); tmp != nil {
-		fmt.Printf("Wallet with name %x already exists.\n", name)
+		fmt.Printf("Wallet with name %s already exists.\n", name)
+		return
 	}
 	addr := cli.Wallets.CreateWallet(name)
-	fmt.Printf("Wallet: %x\n", name)
+	fmt.Printf("Wallet: %s\n", name)
 	fmt.Printf("Address: %x\n", addr)
 	// put this address into known addresses
 	res := cli.Wallets.GetWallet(name)
@@ -61,11 +63,11 @@ func (cli *Cli) CheckWallet(name string) {
 func (cli *Cli) _checkWallet(name string) {
 	res := cli.Wallets.GetWallet(name)
 	if res == nil {
-		fmt.Printf("Error: no wallet with name %x.\n", name)
+		fmt.Printf("Error: no wallet with name %s.\n", name)
 		return
 	}
 	addr := res.Address()
-	fmt.Printf("Wallet: %x\n", name)
+	fmt.Printf("Wallet: %s\n", name)
 	fmt.Printf("Address: %x\n", addr)
 	balance := cli.Blockchain.GetBalance(addr, &res.PrivateKey.PublicKey)
 	fmt.Printf("Balance: %v\n", balance)
@@ -75,6 +77,7 @@ func (cli *Cli) _checkAllWallets() {
 	var accountNames = cli.Wallets.GetAllWalletNames()
 	for _, name := range accountNames {
 		cli._checkWallet(name)
+		fmt.Println()
 	}
 }
 
@@ -89,10 +92,10 @@ func (cli *Cli) CheckKnownAddress(name string) {
 func (cli *Cli) _checkKnownAddress(name string) {
 	res := cli.Wallets.GetKnownAddress(name)
 	if res == nil {
-		fmt.Printf("Error: no known address with name %x.\n", name)
+		fmt.Printf("Error: no known address with name %s.\n", name)
 		return
 	}
-	fmt.Printf("Known Address: %x has address %x.\n", name, res.Address)
+	fmt.Printf("Known Address: %s has address %x.\n", name, res.Address)
 }
 
 func (cli *Cli) _checkAllKnownAddresses() {
