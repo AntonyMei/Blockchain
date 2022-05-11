@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
+	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/wallet"
 )
 
@@ -25,6 +26,9 @@ func InitializeCli() *Cli {
 
 	// initialize cli
 	cli := Cli{Wallets: wallets, Blockchain: chain}
+
+	// perform some magic op
+	transaction.MagicOp()
 	return &cli
 }
 

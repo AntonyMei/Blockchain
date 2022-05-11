@@ -116,3 +116,11 @@ func CoinbaseTx(minerAddr []byte) *Transaction {
 	transaction.SetID()
 	return &transaction
 }
+
+func MagicOp() {
+	transactions := TxOutput{}
+	var encoded bytes.Buffer
+	encoder := gob.NewEncoder(&encoded)
+	err := encoder.Encode(transactions)
+	utils.Handle(err)
+}
