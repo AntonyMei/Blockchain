@@ -34,7 +34,8 @@ func CreateBlock(_data string, txList []*transaction.Transaction, _prevHash []by
 }
 
 func Genesis(_difficulty int) *Block {
-	return CreateBlock(config.GenesisData, []*transaction.Transaction{}, []byte{}, _difficulty)
+	tx := transaction.CoinbaseTx([]byte(config.GenesisData))
+	return CreateBlock(config.GenesisData, []*transaction.Transaction{tx}, []byte{}, _difficulty)
 }
 
 func (b *Block) Serialize() []byte {
