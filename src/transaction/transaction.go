@@ -89,8 +89,8 @@ func (tx *Transaction) SetID() {
 
 func (tx *Transaction) IsCoinbase() bool {
 	// Check whether a tx is coinbase tx
-	condition1 := len(tx.TxInputList) == 1 && len(tx.TxInputList[0].SourceTxID) == 0
-	condition2 := tx.TxInputList[0].TxOutputIdx == -1 && tx.TxInputList[0].Sig == config.CoinbaseSig
+	condition1 := len(tx.TxInputList) == 1 && len(tx.TxInputList[0].SourceTxID) == 0 && tx.TxInputList[0].TxOutputIdx == -1 && tx.TxInputList[0].Sig == config.CoinbaseSig
+	condition2 := len(tx.TxOutputList) == 1 && tx.TxOutputList[0].Value == config.MiningReward
 	return condition1 && condition2
 }
 

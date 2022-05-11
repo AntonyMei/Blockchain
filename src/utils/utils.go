@@ -7,9 +7,15 @@ import (
 	"log"
 )
 
-type BlockErrorType int64
+type BlockStatus int64
 
-const ()
+const (
+	Verified = iota
+	GenesisDataError
+	GenesisDifficultyError
+	GenesisTransactionError
+	HashMismatch
+)
 
 func Int2Hex(num int64) []byte {
 	buff := new(bytes.Buffer)
