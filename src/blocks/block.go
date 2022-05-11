@@ -33,8 +33,8 @@ func CreateBlock(_data string, txList []*transaction.Transaction, _prevHash []by
 	return newBlock
 }
 
-func Genesis(coinbaseTx *transaction.Transaction, _difficulty int) *Block {
-	return CreateBlock(config.GenesisData, []*transaction.Transaction{coinbaseTx}, []byte{}, _difficulty)
+func Genesis(_difficulty int) *Block {
+	return CreateBlock(config.GenesisData, []*transaction.Transaction{}, []byte{}, _difficulty)
 }
 
 func (b *Block) Serialize() []byte {
@@ -64,6 +64,14 @@ func (b *Block) GetTransactionsHash() []byte {
 	finalHash := sha256.Sum256(bytes.Join(txHashList, []byte{}))
 	return finalHash[:]
 }
+
+//func (b *Block) Validate() utils.BlockErrorType {
+//	// check if this block is genesis
+//	if bytes.Compare(b.PrevHash, []byte{}) == 0 {
+//
+//	}
+//
+//}
 
 func (b *Block) Log2Terminal() {
 	fmt.Printf("****************************************\n")

@@ -33,19 +33,20 @@ func main() {
 		davidAddr = davidWallet.Address()
 	}
 
-	// alice starts a chain / continues from last chain
-	chain := blockchain.InitBlockChain(aliceAddr)
-	// then mines a block
-	chain.AddBlock(aliceAddr, "First Block after genesis", []*transaction.Transaction{})
+	// starts a chain / continues from last chain
+	chain := blockchain.InitBlockChain()
+	// alice mines two blocks
+	chain.AddBlock(aliceAddr, "Alice 1", []*transaction.Transaction{})
+	chain.AddBlock(aliceAddr, "Alice 2", []*transaction.Transaction{})
 	// bob comes in and mine another block
-	chain.AddBlock(bobAddr, "Second Block after genesis", []*transaction.Transaction{})
-	// Alice pay bob 30 in the next block
+	chain.AddBlock(bobAddr, "Bob 1", []*transaction.Transaction{})
+	// Alice pays bob 30 in the next block
 	tx1 := chain.GenerateTransaction(aliceWallet, [][]byte{bobAddr}, []int{30})
-	chain.AddBlock(bobAddr, "Third Block after genesis", []*transaction.Transaction{tx1})
+	chain.AddBlock(bobAddr, "Bob records that Alice pays Bob 30.", []*transaction.Transaction{tx1})
 	// Alice gives Bob 90, David 40, then Bob returns 60, Charlie logs this
 	tx2 := chain.GenerateTransaction(aliceWallet, [][]byte{bobAddr, davidAddr}, []int{90, 40})
 	tx3 := chain.GenerateTransaction(bobWallet, [][]byte{aliceAddr}, []int{60})
-	chain.AddBlock(charlieAddr, "Fourth Block after genesis",
+	chain.AddBlock(charlieAddr, "Charlie records that Alice gives Bob 90, David 40 and Bob returns 60.",
 		[]*transaction.Transaction{tx2, tx3})
 	// At this point the balance should look like
 	// Alice:   100

@@ -21,7 +21,7 @@ type BlockChain struct {
 	ChainDifficulty int
 }
 
-func InitBlockChain(genesisMinerAddr []byte) *BlockChain {
+func InitBlockChain() *BlockChain {
 	// open db connection
 	var options = badger.DefaultOptions(config.PersistentStoragePath)
 	database, err := badger.Open(options)
@@ -33,8 +33,7 @@ func InitBlockChain(genesisMinerAddr []byte) *BlockChain {
 		if err == badger.ErrKeyNotFound {
 			// no chain in database, create a new one
 			fmt.Println("Initiating a new blockchain...")
-			coinbaseTx := transaction.CoinbaseTx(genesisMinerAddr)
-			genesis := blocks.Genesis(coinbaseTx, config.InitialChainDifficulty)
+			genesis := blocks.Genesis(config.InitialChainDifficulty)
 			err = txn.Set(genesis.Hash, genesis.Serialize())
 			utils.Handle(err)
 			err = txn.Set([]byte("lasthash"), genesis.Hash)
