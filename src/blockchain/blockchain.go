@@ -82,26 +82,26 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 		// check hash
 		pow := blocks.CreateProofOfWork(block)
 		if !pow.ValidateNonce() {
-			return utils.HashMismatch
+			return utils.WrongGenesis
 		}
 		// check data
 		if bytes.Compare(block.Data, []byte(config.GenesisData)) != 0 {
-			return utils.GenesisDataError
+			return utils.WrongGenesis
 		}
 		// check Difficulty
 		if block.Difficulty != config.InitialChainDifficulty {
-			return utils.GenesisDifficultyError
+			return utils.WrongGenesis
 		}
 		// check transactions
 		if len(block.TransactionList) != 1 {
-			return utils.GenesisTransactionError
+			return utils.WrongGenesis
 		}
 		tx := block.TransactionList[0]
 		if !tx.IsCoinbase() {
-			return utils.GenesisTransactionError
+			return utils.WrongGenesis
 		}
 		if bytes.Compare(tx.TxOutputList[0].Address, []byte(config.GenesisData)) != 0 {
-			return utils.GenesisTransactionError
+			return utils.WrongGenesis
 		}
 		return utils.Verified
 	}

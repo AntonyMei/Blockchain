@@ -11,9 +11,7 @@ type BlockStatus int64
 
 const (
 	Verified = iota
-	GenesisDataError
-	GenesisDifficultyError
-	GenesisTransactionError
+	WrongGenesis
 	PrevBlockNotFound
 	HashMismatch
 )
