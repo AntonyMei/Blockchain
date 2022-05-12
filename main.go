@@ -119,7 +119,7 @@ MainLoop:
 			var receiverNameList []string
 			var amountList []int
 			for idx := 7; idx < len(inputList); idx++ {
-				splitList := strings.Split(text, ":")
+				splitList := strings.Split(inputList[idx], ":")
 				if len(splitList) != 2 || len(splitList[0]) == 0 || len(splitList[1]) == 0 {
 					fmt.Printf("Syntax error: could not parse receiver list.\n")
 					continue MainLoop
@@ -132,6 +132,7 @@ MainLoop:
 				}
 				amountList = append(amountList, amount)
 			}
+			fmt.Printf("%p\n", receiverNameList)
 			commandLine.CreateTransaction(txName, senderName, receiverNameList, amountList)
 		} else if utils.Match(inputList, []string{"ls", "tx"}) {
 			// list all TXes
