@@ -67,6 +67,7 @@ func (nd *Node) HandlePeersMessage(w http.ResponseWriter, req *http.Request) {
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 
+	nd.ConnectionPool.AddPeer(msg.Meta)
 	fmt.Printf("Receive PEERS message from http://%s:%s.\n", msg.Meta.Ip, msg.Meta.Port)
 
 	for _, peer := range msg.Peers {
@@ -133,26 +134,17 @@ func (nd *Node) HandleBlockMessage(w http.ResponseWriter, req *http.Request) {
 }
 
 func (nd *Node) SendMessage(channel string, meta NetworkMetaData, buf *bytes.Buffer) {
-	
-	for fail_count := 1; ; fail_count++ {
-		c := http.Client{Timeout: time.Duration(10) * time.Second}
+	c := http.Client{Timeout: time.Duration(10) * time.Second}
 
-		s := fmt.Sprintf("http://%s:%s/%s", meta.Ip, meta.Port, channel)
-		url, err := url.Parse(s)
-		utils.Handle(err)
+	s := fmt.Sprintf("http://%s:%s/%s", meta.Ip, meta.Port, channel)
+	url, err := url.Parse(s)
+	utils.Handle(err)
 
-		resp, err := c.Post(url.String(), "", bytes.NewBuffer(buf.Bytes()))
-		if err != nil {
-			if fail_count == 10 {
-				utils.Handle(err)
-			}
-			fmt.Printf("Failed %d times posting message.\n", fail_count)
-			continue
-		}
-		body, err := ioutil.ReadAll(resp.Body)
-		utils.Assert((string(body)[len(string(body))-3:] == "ACK"), fmt.Sprintf("response = ACK, but get %s\n", body))
-		resp.Body.Close()
-	}
+	resp, err := c.Post(url.String(), "", bytes.NewBuffer(buf.Bytes()))
+	utils.Handle(err)
+	body, err := ioutil.ReadAll(resp.Body)
+	utils.Assert((string(body)[len(string(body))-3:] == "ACK"), fmt.Sprintf("response = ACK, but get %s\n", body))
+	defer resp.Body.Close()
 }
 
 func (nd *Node) SendPeersMessage(meta NetworkMetaData) {

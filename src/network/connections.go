@@ -19,9 +19,12 @@ func InitializeConnectionPool() *ConnectionPool {
 func (cp *ConnectionPool) AddPeer(peer_meta NetworkMetaData) {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
-	if !cp.ExistsPeer(peer_meta) {
-		cp.pool = append(cp.pool, peer_meta)
-	}
+	for _, meta := range cp.pool {
+		if(meta.Ip == peer_meta.Ip && meta.Port == peer_meta.Port) {
+		  return
+		}
+	  }
+	cp.pool = append(cp.pool, peer_meta)
 }
 
 func (cp *ConnectionPool) ExistsPeer(peer_meta NetworkMetaData) bool {
@@ -32,6 +35,7 @@ func (cp *ConnectionPool) ExistsPeer(peer_meta NetworkMetaData) bool {
 		  return true
 		}
 	  }
+	fmt.Printf("Peer Ip=%s Port=%s doesn't exist.\n", peer_meta.Ip, peer_meta.Port)
 	return false
 }
 
