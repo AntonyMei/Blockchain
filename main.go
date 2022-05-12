@@ -8,11 +8,17 @@ import (
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
+	"github.com/AntonyMei/Blockchain/src/network"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
+	test_network()
+}
+
+func run_cli() {
 	commandLine := cli.InitializeCli()
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Blockchain interactive mode, type 'Usage' for more information.")
@@ -21,6 +27,7 @@ func main() {
 		fmt.Print(">>>")
 		text, _ := reader.ReadString('\n')
 		text = strings.Replace(text, "\n", "", -1)
+		text = strings.Replace(text, "\r", "", -1)
 		rawInputList := strings.Split(text, " ")
 		var inputList []string
 		for _, input := range rawInputList {
@@ -28,7 +35,6 @@ func main() {
 				inputList = append(inputList, input)
 			}
 		}
-
 		// main loop
 		if len(inputList) == 0 {
 			continue
@@ -59,6 +65,39 @@ func main() {
 			fmt.Printf("Unknown command.\n")
 		}
 		fmt.Println()
+	}
+}
+
+func test_network() {
+	println("Network Test")
+	agent := os.Args[1]
+	ports := map[string]string{
+		"Alice": "5000",
+		"Bob": "5001",
+		"Charlie": "5002",
+		"David": "5003",
+	}
+	// initialize nodes and wallets for each agent
+	var chain *blockchain.BlockChain
+	
+	wallets, _ := wallet.InitializeWallets()
+	// utils.Handle(err)
+	agentAddr := wallets.CreateWallet(agent)
+	agentWallet := wallets.GetWallet(agent)
+	if chain == nil {
+		chain = blockchain.InitBlockChain(wallets)
+	}
+	meta := network.NetworkMetaData{Ip:"localhost", Port:ports[agent], Name:agent, PublicKey: agentWallet.PrivateKey.PublicKey, WalletAddr: agentAddr}
+	node := network.InitializeNode(wallets, chain, meta)
+	node.Serve()
+	
+	if agent == "Bob" {
+		alice_meta := network.NetworkMetaData{Ip:"localhost", Port:ports["Alice"], Name:"Alice"}
+		node.SendPingMessage(alice_meta)
+	}
+
+	for true {
+		time.Sleep(time.Duration(1) * time.Millisecond)
 	}
 }
 
