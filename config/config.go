@@ -7,8 +7,9 @@ const (
 	MiningReward = 100
 
 	// PersistentStoragePath is where we store the chain on disk
-	PersistentStoragePath = "./tmp/blocks"
-	WalletPath            = "./tmp/wallets.data"
+	PersistentStoragePath = "./tmp/"
+	WalletFileName        = "/wallets.data"
+	BlockchainPath        = "/blocks"
 
 	// GenesisData is contained in Data field of genesis block
 	GenesisData = "Genesis"

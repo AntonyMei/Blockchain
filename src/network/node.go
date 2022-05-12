@@ -41,7 +41,7 @@ func (nd *Node) HandlePeer(meta NetworkMetaData) {
 func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 	PrintHeader(w, req)
 
-
+	// send acknowledgement back
 	fmt.Fprintf(w, "ACK")
 
 	body, err := ioutil.ReadAll(req.Body)
@@ -57,12 +57,13 @@ func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 
 	nd.SendPeersMessage(msg.Meta)
 
-	// TODO: synchronize block
+	// TODO: synchronize block according to block height
 }
 
 func (nd *Node) HandlePeersMessage(w http.ResponseWriter, req *http.Request) {
 	PrintHeader(w, req)
 
+	// send acknowledgement back
 	fmt.Fprintf(w, "ACK")
 	body, err := ioutil.ReadAll(req.Body)
 	utils.Handle(err)
@@ -86,6 +87,7 @@ func (nd *Node) HandlePeersMessage(w http.ResponseWriter, req *http.Request) {
 func (nd *Node) HandleTransactionMessage(w http.ResponseWriter, req *http.Request) {
 	PrintHeader(w, req)
 
+	// send acknowledgement back
 	fmt.Fprintf(w, "ACK")
 	body, err := ioutil.ReadAll(req.Body)
 	utils.Handle(err)
@@ -106,6 +108,7 @@ func (nd *Node) HandleTransactionMessage(w http.ResponseWriter, req *http.Reques
 func (nd *Node) HandleBlockMessage(w http.ResponseWriter, req *http.Request) {
 	PrintHeader(w, req)
 
+	// send acknowledgement back
 	fmt.Fprintf(w, "ACK")
 	body, err := ioutil.ReadAll(req.Body)
 	utils.Handle(err)

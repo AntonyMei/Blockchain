@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/cli"
 	"github.com/AntonyMei/Blockchain/src/transaction"
@@ -15,19 +16,18 @@ import (
 )
 
 func main() {
-	test_network()
+	run_cli()
 }
 
 func run_cli() {
-	commandLine := cli.InitializeCli()
-	reader := bufio.NewReader(os.Stdin)
+	// login to local system
 	fmt.Println("Blockchain interactive mode, type 'Usage' for more information.")
+	var reader = bufio.NewReader(os.Stdin)
+	var userName string
 	for {
-		// parse input
-		fmt.Print(">>>")
+		fmt.Print(">>> Log in as: ")
 		text, _ := reader.ReadString('\n')
 		text = strings.Replace(text, "\n", "", -1)
-		text = strings.Replace(text, "\r", "", -1)
 		rawInputList := strings.Split(text, " ")
 		var inputList []string
 		for _, input := range rawInputList {
@@ -35,6 +35,41 @@ func run_cli() {
 				inputList = append(inputList, input)
 			}
 		}
+		if len(inputList) == 1 {
+			userName = inputList[0]
+			pathExists, err := utils.PathExists(config.PersistentStoragePath + userName)
+			utils.Handle(err)
+			if pathExists {
+				fmt.Printf("Login as %v.\n", userName)
+			} else {
+				fmt.Printf("New user %v.\n", userName)
+				err := os.Mkdir(config.PersistentStoragePath+userName, os.ModePerm)
+				utils.Handle(err)
+			}
+			break
+		} else {
+			fmt.Printf("Expect 1 parameter, got %v instead.\n", len(inputList))
+		}
+	}
+	walletPath := config.PersistentStoragePath + userName + config.WalletFileName
+	blockchainPath := config.PersistentStoragePath + userName + config.BlockchainPath
+	fmt.Printf("Wallet path: %v\n", walletPath)
+	fmt.Printf("Blockchain path: %v\n", blockchainPath)
+	commandLine := cli.InitializeCli(userName)
+
+	for {
+		// parse input
+		fmt.Print(">>>")
+		text, _ := reader.ReadString('\n')
+		text = strings.Replace(text, "\n", "", -1)
+		rawInputList := strings.Split(text, " ")
+		var inputList []string
+		for _, input := range rawInputList {
+			if input != "" {
+				inputList = append(inputList, input)
+			}
+		}
+
 		// main loop
 		if len(inputList) == 0 {
 			continue
@@ -80,12 +115,12 @@ func test_network() {
 	// initialize nodes and wallets for each agent
 	var chain *blockchain.BlockChain
 	
-	wallets, _ := wallet.InitializeWallets()
+	wallets, _ := wallet.InitializeWallets(agent)
 	// utils.Handle(err)
 	agentAddr := wallets.CreateWallet(agent)
 	agentWallet := wallets.GetWallet(agent)
 	if chain == nil {
-		chain = blockchain.InitBlockChain(wallets)
+		chain = blockchain.InitBlockChain(wallets, agent)
 	}
 	meta := network.NetworkMetaData{Ip:"localhost", Port:ports[agent], Name:agent, PublicKey: agentWallet.PrivateKey.PublicKey, WalletAddr: agentAddr}
 	node := network.InitializeNode(wallets, chain, meta)
@@ -104,7 +139,7 @@ func test_network() {
 func test() {
 	println("Wallet Test")
 	// initialize wallets
-	wallets, err := wallet.InitializeWallets()
+	wallets, err := wallet.InitializeWallets("Alice")
 	var aliceAddr, bobAddr, charlieAddr, davidAddr []byte
 	var aliceWallet, bobWallet, charlieWallet, davidWallet *wallet.Wallet
 	if err != nil {
@@ -136,7 +171,7 @@ func test() {
 	}
 
 	// starts a chain / continues from last chain
-	chain := blockchain.InitBlockChain(wallets)
+	chain := blockchain.InitBlockChain(wallets, "Alice")
 	// alice mines two blocks
 	chain.AddBlock(aliceAddr, "Alice 1", []*transaction.Transaction{})
 	chain.AddBlock(aliceAddr, "Alice 2", []*transaction.Transaction{})

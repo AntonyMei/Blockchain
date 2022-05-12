@@ -25,9 +25,10 @@ type BlockChain struct {
 	ChainDifficulty int
 }
 
-func InitBlockChain(wallets *wallet.Wallets) *BlockChain {
+func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 	// open db connection
-	var options = badger.DefaultOptions(config.PersistentStoragePath)
+	persistentPath := config.PersistentStoragePath + userName + config.BlockchainPath
+	var options = badger.DefaultOptions(persistentPath)
 	database, err := badger.Open(options)
 	utils.Handle(err)
 
