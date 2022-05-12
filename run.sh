@@ -1,2 +1,2 @@
-mkdir -p ./tmp/blocks
+mkdir -p ./tmp
 go run main.go
