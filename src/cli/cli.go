@@ -8,9 +8,10 @@ import (
 )
 
 type Cli struct {
-	Wallets    *wallet.Wallets
-	Blockchain *blockchain.BlockChain
-	UserName   string
+	Wallets      *wallet.Wallets
+	Blockchain   *blockchain.BlockChain
+	UserName     string
+	pendingTXMap map[string]*transaction.Transaction
 }
 
 // Basic
@@ -57,15 +58,15 @@ func (cli *Cli) CreateWallet(name string) {
 	cli.Wallets.AddKnownAddress(name, &wallet.KnownAddress{Address: addr, PublicKey: res.PrivateKey.PublicKey})
 }
 
-func (cli *Cli) CheckWallet(name string) {
+func (cli *Cli) ListWallet(name string) {
 	if name == "All" || name == "all" {
-		cli._checkAllWallets()
+		cli._listAllWallets()
 	} else {
-		cli._checkWallet(name)
+		cli._listWallet(name)
 	}
 }
 
-func (cli *Cli) _checkWallet(name string) {
+func (cli *Cli) _listWallet(name string) {
 	res := cli.Wallets.GetWallet(name)
 	if res == nil {
 		fmt.Printf("Error: no wallet with name %s.\n", name)
@@ -78,23 +79,23 @@ func (cli *Cli) _checkWallet(name string) {
 	fmt.Printf("Balance: %v\n", balance)
 }
 
-func (cli *Cli) _checkAllWallets() {
+func (cli *Cli) _listAllWallets() {
 	var accountNames = cli.Wallets.GetAllWalletNames()
 	for _, name := range accountNames {
-		cli._checkWallet(name)
+		cli._listWallet(name)
 		fmt.Println()
 	}
 }
 
-func (cli *Cli) CheckKnownAddress(name string) {
+func (cli *Cli) ListKnownAddress(name string) {
 	if name == "All" || name == "all" {
-		cli._checkAllKnownAddresses()
+		cli._listAllKnownAddresses()
 	} else {
-		cli._checkKnownAddress(name)
+		cli._listKnownAddress(name)
 	}
 }
 
-func (cli *Cli) _checkKnownAddress(name string) {
+func (cli *Cli) _listKnownAddress(name string) {
 	res := cli.Wallets.GetKnownAddress(name)
 	if res == nil {
 		fmt.Printf("Error: no known address with name %s.\n", name)
@@ -103,8 +104,38 @@ func (cli *Cli) _checkKnownAddress(name string) {
 	fmt.Printf("Known Address: %s has address %x.\n", name, res.Address)
 }
 
-func (cli *Cli) _checkAllKnownAddresses() {
+func (cli *Cli) _listAllKnownAddresses() {
 	for name := range cli.Wallets.KnownAddressMap {
-		cli._checkKnownAddress(name)
+		cli._listKnownAddress(name)
+	}
+}
+
+func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []string, amountList []int) {
+	// get sender wallet and receiver addresses
+	fromWallet := cli.Wallets.GetWallet(sender)
+	if fromWallet == nil {
+		fmt.Printf("Error: No wallet with name %x.", sender)
+		return
+	}
+	var toAddrList [][]byte
+	for _, receiver := range receiverList {
+		receiverAddr := cli.Wallets.GetKnownAddress(receiver)
+		if receiverAddr == nil {
+			fmt.Printf("Error: No known address with name %x.", receiver)
+			return
+		}
+		toAddrList = append(toAddrList, receiverAddr.Address)
+	}
+
+	// create TX and put into pending zone
+	newTX := cli.Blockchain.GenerateTransaction(fromWallet, toAddrList, amountList)
+	txKey := txName + "::" + string(newTX.TxID[:8])
+	cli.pendingTXMap[txKey] = newTX
+	fmt.Printf("New transaction: %x.\n", txKey)
+}
+
+func (cli *Cli) ListPendingTransactions() {
+	for txKey := range cli.pendingTXMap {
+		fmt.Printf("%x\n", txKey)
 	}
 }

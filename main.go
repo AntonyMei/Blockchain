@@ -6,10 +6,10 @@ import (
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/cli"
+	"github.com/AntonyMei/Blockchain/src/network"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
-	"github.com/AntonyMei/Blockchain/src/network"
 	"os"
 	"strings"
 	"time"
@@ -91,13 +91,13 @@ func run_cli() {
 			if !utils.CheckArgumentCount(inputList, 3) {
 				continue
 			}
-			commandLine.CheckWallet(inputList[2])
+			commandLine.ListWallet(inputList[2])
 		} else if utils.Match(inputList, []string{"ls", "peer"}) {
 			// check peer
 			if !utils.CheckArgumentCount(inputList, 3) {
 				continue
 			}
-			commandLine.CheckKnownAddress(inputList[2])
+			commandLine.ListKnownAddress(inputList[2])
 		} else {
 			fmt.Printf("Unknown command.\n")
 		}
@@ -109,10 +109,10 @@ func test_network() {
 	println("Network Test")
 	agent := os.Args[1]
 	ports := map[string]string{
-		"Alice": "5000",
-		"Bob": "5001",
+		"Alice":   "5000",
+		"Bob":     "5001",
 		"Charlie": "5002",
-		"David": "5003",
+		"David":   "5003",
 	}
 
 	pathExists, err := utils.PathExists(config.PersistentStoragePath + agent)
@@ -127,7 +127,7 @@ func test_network() {
 
 	// initialize nodes and wallets for each agent
 	var chain *blockchain.BlockChain
-	
+
 	wallets, _ := wallet.InitializeWallets(agent)
 	// utils.Handle(err)
 	agentAddr := wallets.CreateWallet(agent)
@@ -135,12 +135,12 @@ func test_network() {
 	if chain == nil {
 		chain = blockchain.InitBlockChain(wallets, agent)
 	}
-	meta := network.NetworkMetaData{Ip:"localhost", Port:ports[agent], Name:agent, PublicKey: agentWallet.PublicKey, WalletAddr: agentAddr}
+	meta := network.NetworkMetaData{Ip: "localhost", Port: ports[agent], Name: agent, PublicKey: agentWallet.PublicKey, WalletAddr: agentAddr}
 	node := network.InitializeNode(wallets, chain, meta)
 	node.Serve()
-	
+
 	if agent == "Bob" {
-		alice_meta := network.NetworkMetaData{Ip:"localhost", Port:ports["Alice"], Name:"Alice"}
+		alice_meta := network.NetworkMetaData{Ip: "localhost", Port: ports["Alice"], Name: "Alice"}
 		node.SendPingMessage(alice_meta)
 	}
 
