@@ -111,17 +111,22 @@ func (cli *Cli) _listAllKnownAddresses() {
 }
 
 func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []string, amountList []int) {
+	// check input shape
+	if len(receiverList) != len(amountList) {
+		fmt.Printf("Error: receiver list and amount list shape mismatch.\n")
+	}
+
 	// get sender wallet and receiver addresses
 	fromWallet := cli.Wallets.GetWallet(sender)
 	if fromWallet == nil {
-		fmt.Printf("Error: No wallet with name %x.", sender)
+		fmt.Printf("Error: No wallet with name %x.\n", sender)
 		return
 	}
 	var toAddrList [][]byte
 	for _, receiver := range receiverList {
 		receiverAddr := cli.Wallets.GetKnownAddress(receiver)
 		if receiverAddr == nil {
-			fmt.Printf("Error: No known address with name %x.", receiver)
+			fmt.Printf("Error: No known address with name %x.\n", receiver)
 			return
 		}
 		toAddrList = append(toAddrList, receiverAddr.Address)
@@ -135,7 +140,9 @@ func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []s
 }
 
 func (cli *Cli) ListPendingTransactions() {
+	idx := 0
 	for txKey := range cli.pendingTXMap {
-		fmt.Printf("%x\n", txKey)
+		fmt.Printf("Transaction %v: %x\n", idx, txKey)
+		idx += 1
 	}
 }
