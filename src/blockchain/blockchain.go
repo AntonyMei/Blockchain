@@ -77,6 +77,9 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 		// check block
 		verifyResult := bc.ValidateBlock(newBlock)
 		fmt.Printf("Verify new block: %v.\n", verifyResult.String())
+		if verifyResult != utils.Verified {
+			return nil
+		}
 
 		// add into db
 		err = txn.Set(newBlock.Hash, newBlock.Serialize())

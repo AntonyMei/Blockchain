@@ -6,17 +6,18 @@ import (
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/cli"
+	"github.com/AntonyMei/Blockchain/src/network"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
-	"github.com/AntonyMei/Blockchain/src/network"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 func main() {
-	run_cli()
+	runCli()
 }
 
 func ReadCommand(reader *bufio.Reader) []string {
@@ -33,7 +34,7 @@ func ReadCommand(reader *bufio.Reader) []string {
 	return inputList
 }
 
-func run_cli() {
+func runCli() {
 	// login to local system
 	fmt.Println("Blockchain interactive mode, type 'Usage' for more information.")
 	var reader = bufio.NewReader(os.Stdin)
@@ -77,6 +78,7 @@ func run_cli() {
 	fmt.Printf("Blockchain path: %v\n", blockchainPath)
 	commandLine := cli.InitializeCli(userName, ip, port)
 
+MainLoop:
 	for {
 		// parse input
 		fmt.Print(">>>")
@@ -88,26 +90,64 @@ func run_cli() {
 		}
 		if utils.Match(inputList, []string{"exit"}) {
 			// exit
+			// syntax: exit
 			commandLine.Exit()
 			return
 		} else if utils.Match(inputList, []string{"mk", "wallet"}) {
 			// create wallet
+			// syntax: mk wallet [name]
 			if !utils.CheckArgumentCount(inputList, 3) {
 				continue
 			}
 			commandLine.CreateWallet(inputList[2])
 		} else if utils.Match(inputList, []string{"ls", "wallet"}) {
-			// check wallet
+			// list wallet
+			// syntax: ls wallet [name/all]
 			if !utils.CheckArgumentCount(inputList, 3) {
 				continue
 			}
-			commandLine.CheckWallet(inputList[2])
+			commandLine.ListWallet(inputList[2])
 		} else if utils.Match(inputList, []string{"ls", "peer"}) {
-			// check peer
+			// list peer
+			// syntax: ls peer [name/all]
 			if !utils.CheckArgumentCount(inputList, 3) {
 				continue
 			}
-			commandLine.CheckKnownAddress(inputList[2])
+			commandLine.ListKnownAddress(inputList[2])
+		} else if utils.Match(inputList, []string{"mk", "tx"}) {
+			// create new tx
+			// syntax: mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...
+			if !utils.CheckArgumentCount(inputList, 8) {
+				continue
+			}
+			if inputList[2] != "-n" || inputList[4] != "-s" || inputList[6] != "-r" {
+				fmt.Printf("Syntax error: mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...\n")
+				continue
+			}
+			txName := inputList[3]
+			senderName := inputList[5]
+			var receiverNameList []string
+			var amountList []int
+			for idx := 7; idx < len(inputList); idx++ {
+				splitList := strings.Split(inputList[idx], ":")
+				if len(splitList) != 2 || len(splitList[0]) == 0 || len(splitList[1]) == 0 {
+					fmt.Printf("Syntax error: could not parse receiver list.\n")
+					continue MainLoop
+				}
+				receiverNameList = append(receiverNameList, splitList[0])
+				amount, err := strconv.Atoi(splitList[1])
+				if err != nil {
+					fmt.Printf("Syntax error: could not parse amount.\n")
+					continue MainLoop
+				}
+				amountList = append(amountList, amount)
+			}
+			fmt.Printf("%p\n", receiverNameList)
+			commandLine.CreateTransaction(txName, senderName, receiverNameList, amountList)
+		} else if utils.Match(inputList, []string{"ls", "tx"}) {
+			// list all TXes
+			// syntax: ls tx
+			commandLine.ListPendingTransactions()
 		} else if utils.Match(inputList, []string{"ping"}) {
 			// ping 
 			if !utils.CheckArgumentCount(inputList, 3) {
@@ -137,10 +177,10 @@ func test_network() {
 	println("Network Test")
 	agent := os.Args[1]
 	ports := map[string]string{
-		"Alice": "6000",
-		"Bob": "6001",
-		"Charlie": "6002",
-		"David": "6003",
+		"Alice":   "5000",
+		"Bob":     "5001",
+		"Charlie": "5002",
+		"David":   "5003",
 	}
 
 	pathExists, err := utils.PathExists(config.PersistentStoragePath + agent)
@@ -155,7 +195,7 @@ func test_network() {
 
 	// initialize nodes and wallets for each agent
 	var chain *blockchain.BlockChain
-	
+
 	wallets, _ := wallet.InitializeWallets(agent)
 	// utils.Handle(err)
 	// agentAddr := wallets.CreateWallet(agent)

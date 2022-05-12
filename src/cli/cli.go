@@ -11,8 +11,9 @@ import (
 type Cli struct {
 	Wallets    *wallet.Wallets
 	Blockchain *blockchain.BlockChain
-	Node 	   *network.Node
 	UserName   string
+	pendingTXMap map[string]*transaction.Transaction
+	Node 	   *network.Node
 }
 
 // Basic
@@ -63,11 +64,55 @@ func (cli *Cli) CreateWallet(name string) {
 	cli.Wallets.AddKnownAddress(name, &wallet.KnownAddress{Address: addr, PublicKey: res.PrivateKey.PublicKey})
 }
 
-func (cli *Cli) CheckWallet(name string) {
+func (cli *Cli) ListWallet(name string) {
 	if name == "All" || name == "all" {
-		cli._checkAllWallets()
+		cli._listAllWallets()
 	} else {
-		cli._checkWallet(name)
+		cli._listWallet(name)
+	}
+}
+
+func (cli *Cli) _listWallet(name string) {
+	res := cli.Wallets.GetWallet(name)
+	if res == nil {
+		fmt.Printf("Error: no wallet with name %s.\n", name)
+		return
+	}
+	addr := res.Address()
+	fmt.Printf("Wallet: %s\n", name)
+	fmt.Printf("Address: %x\n", addr)
+	balance := cli.Blockchain.GetBalance(addr, &res.PrivateKey.PublicKey)
+	fmt.Printf("Balance: %v\n", balance)
+}
+
+func (cli *Cli) _listAllWallets() {
+	var accountNames = cli.Wallets.GetAllWalletNames()
+	for _, name := range accountNames {
+		cli._listWallet(name)
+		fmt.Println()
+	}
+}
+
+func (cli *Cli) ListKnownAddress(name string) {
+	if name == "All" || name == "all" {
+		cli._listAllKnownAddresses()
+	} else {
+		cli._listKnownAddress(name)
+	}
+}
+
+func (cli *Cli) _listKnownAddress(name string) {
+	res := cli.Wallets.GetKnownAddress(name)
+	if res == nil {
+		fmt.Printf("Error: no known address with name %s.\n", name)
+		return
+	}
+	fmt.Printf("Known Address: %s has address %x.\n", name, res.Address)
+}
+
+func (cli *Cli) _listAllKnownAddresses() {
+	for name := range cli.Wallets.KnownAddressMap {
+		cli._listKnownAddress(name)
 	}
 }
 
@@ -91,46 +136,41 @@ func (cli *Cli) Broadcast(name string) {
 	cli.Node.BroadcastUserMessage(user_meta)
 }
 
-func (cli *Cli) _checkWallet(name string) {
-	res := cli.Wallets.GetWallet(name)
-	if res == nil {
-		fmt.Printf("Error: no wallet with name %s.\n", name)
+// transaction
+
+func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []string, amountList []int) {
+	// check input shape
+	if len(receiverList) != len(amountList) {
+		fmt.Printf("Error: receiver list and amount list shape mismatch.\n")
+	}
+
+	// get sender wallet and receiver addresses
+	fromWallet := cli.Wallets.GetWallet(sender)
+	if fromWallet == nil {
+		fmt.Printf("Error: No wallet with name %x.\n", sender)
 		return
 	}
-	addr := res.Address()
-	fmt.Printf("Wallet: %s\n", name)
-	fmt.Printf("Address: %x\n", addr)
-	balance := cli.Blockchain.GetBalance(addr, &res.PrivateKey.PublicKey)
-	fmt.Printf("Balance: %v\n", balance)
-}
-
-func (cli *Cli) _checkAllWallets() {
-	var accountNames = cli.Wallets.GetAllWalletNames()
-	for _, name := range accountNames {
-		cli._checkWallet(name)
-		fmt.Println()
+	var toAddrList [][]byte
+	for _, receiver := range receiverList {
+		receiverAddr := cli.Wallets.GetKnownAddress(receiver)
+		if receiverAddr == nil {
+			fmt.Printf("Error: No known address with name %x.\n", receiver)
+			return
+		}
+		toAddrList = append(toAddrList, receiverAddr.Address)
 	}
+
+	// create TX and put into pending zone
+	newTX := cli.Blockchain.GenerateTransaction(fromWallet, toAddrList, amountList)
+	txKey := txName + "::" + string(newTX.TxID[:8])
+	cli.pendingTXMap[txKey] = newTX
+	fmt.Printf("New transaction: %x.\n", txKey)
 }
 
-func (cli *Cli) CheckKnownAddress(name string) {
-	if name == "All" || name == "all" {
-		cli._checkAllKnownAddresses()
-	} else {
-		cli._checkKnownAddress(name)
-	}
-}
-
-func (cli *Cli) _checkKnownAddress(name string) {
-	res := cli.Wallets.GetKnownAddress(name)
-	if res == nil {
-		fmt.Printf("Error: no known address with name %s.\n", name)
-		return
-	}
-	fmt.Printf("Known Address: %s has address %x.\n", name, res.Address)
-}
-
-func (cli *Cli) _checkAllKnownAddresses() {
-	for name := range cli.Wallets.KnownAddressMap {
-		cli._checkKnownAddress(name)
+func (cli *Cli) ListPendingTransactions() {
+	idx := 0
+	for txKey := range cli.pendingTXMap {
+		fmt.Printf("Transaction %v: %x\n", idx, txKey)
+		idx += 1
 	}
 }
