@@ -17,10 +17,10 @@ import (
 )
 
 func main() {
-	run_cli()
+	runCli()
 }
 
-func run_cli() {
+func runCli() {
 	// login to local system
 	fmt.Println("Blockchain interactive mode, type 'Usage' for more information.")
 	var reader = bufio.NewReader(os.Stdin)
