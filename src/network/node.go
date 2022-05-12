@@ -35,7 +35,7 @@ func PrintHeader(w http.ResponseWriter, req *http.Request) {
 
 func (nd *Node) HandlePeer(meta NetworkMetaData) {
 	nd.ConnectionPool.AddPeer(meta)
-	nd.Wallets.AddKnownAddress(meta.Name, &wallet.KnownAddress{Address: meta.WalletAddr, PublicKey: meta.PublicKey})
+	nd.Wallets.AddKnownAddress(meta.Name, &wallet.KnownAddress{Address: meta.WalletAddr, PublicKey: wallet.DeserializePublicKey(meta.PublicKey)})
 }
 
 func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
@@ -136,7 +136,8 @@ func (nd *Node) SendMessage(channel string, meta NetworkMetaData, buf *bytes.Buf
 	resp, err := c.Post(url.String(), "", bytes.NewBuffer(buf.Bytes()))
 	utils.Handle(err)
     body, err := ioutil.ReadAll(resp.Body)
-    utils.Assert((string(body) == "ACK"), fmt.Sprintf("response = ACK, but get %s\n", body))
+    utils.Assert((string(body)[len(string(body))-3:] == "ACK"), fmt.Sprintf("response = ACK, but get %s\n", body))
+	defer  resp.Body.Close()
 }
 
 func (nd *Node) SendPeersMessage(meta NetworkMetaData) {

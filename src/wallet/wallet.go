@@ -8,6 +8,7 @@ import (
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"golang.org/x/crypto/ripemd160"
+	"math/big"
 )
 
 type Wallet struct {
@@ -26,6 +27,17 @@ func GenerateKeyPair() (ecdsa.PrivateKey, []byte) {
 	// public key, ... means append after
 	publicKey := append(privateKey.PublicKey.X.Bytes(), privateKey.PublicKey.Y.Bytes()...)
 	return *privateKey, publicKey
+}
+
+func DeserializePublicKey(publicKey []byte) ecdsa.PublicKey {
+	// deserialize public key
+	var key ecdsa.PublicKey
+	key.Curve = elliptic.P256()
+	key.X = big.NewInt(0)
+	key.X.SetBytes(publicKey[:len(publicKey)/2])
+	key.Y = big.NewInt(0)
+	key.Y.SetBytes(publicKey[len(publicKey)/2:])
+	return key
 }
 
 func PublicKeyHash(publicKey []byte) []byte {

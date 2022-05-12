@@ -28,6 +28,7 @@ func run_cli() {
 		fmt.Print(">>> Log in as: ")
 		text, _ := reader.ReadString('\n')
 		text = strings.Replace(text, "\n", "", -1)
+		text = strings.Replace(text, "\r", "", -1)
 		rawInputList := strings.Split(text, " ")
 		var inputList []string
 		for _, input := range rawInputList {
@@ -62,6 +63,7 @@ func run_cli() {
 		fmt.Print(">>>")
 		text, _ := reader.ReadString('\n')
 		text = strings.Replace(text, "\n", "", -1)
+		text = strings.Replace(text, "\r", "", -1)
 		rawInputList := strings.Split(text, " ")
 		var inputList []string
 		for _, input := range rawInputList {
@@ -112,6 +114,17 @@ func test_network() {
 		"Charlie": "5002",
 		"David": "5003",
 	}
+
+	pathExists, err := utils.PathExists(config.PersistentStoragePath + agent)
+	utils.Handle(err)
+	if pathExists {
+		fmt.Printf("Login as %v.\n", agent)
+	} else {
+		fmt.Printf("New user %v.\n", agent)
+		err := os.Mkdir(config.PersistentStoragePath+agent, os.ModePerm)
+		utils.Handle(err)
+	}
+
 	// initialize nodes and wallets for each agent
 	var chain *blockchain.BlockChain
 	
@@ -122,7 +135,7 @@ func test_network() {
 	if chain == nil {
 		chain = blockchain.InitBlockChain(wallets, agent)
 	}
-	meta := network.NetworkMetaData{Ip:"localhost", Port:ports[agent], Name:agent, PublicKey: agentWallet.PrivateKey.PublicKey, WalletAddr: agentAddr}
+	meta := network.NetworkMetaData{Ip:"localhost", Port:ports[agent], Name:agent, PublicKey: agentWallet.PublicKey, WalletAddr: agentAddr}
 	node := network.InitializeNode(wallets, chain, meta)
 	node.Serve()
 	

@@ -1,7 +1,6 @@
 package network
 
 import (
-	"crypto/ecdsa"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/blocks"
 )
@@ -10,7 +9,7 @@ type NetworkMetaData struct {
 	Ip string
 	Port string
 	Name string
-	PublicKey ecdsa.PublicKey
+	PublicKey []byte
 	WalletAddr []byte
 }
 
