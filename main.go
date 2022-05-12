@@ -20,23 +20,30 @@ func main() {
 	runCli()
 }
 
+func ReadCommand(reader *bufio.Reader) []string {
+	text, _ := reader.ReadString('\n')
+	text = strings.Replace(text, "\n", "", -1)
+	text = strings.Replace(text, "\r", "", -1)
+	rawInputList := strings.Split(text, " ")
+	var inputList []string
+	for _, input := range rawInputList {
+		if input != "" {
+			inputList = append(inputList, input)
+		}
+	}
+	return inputList
+}
+
 func runCli() {
 	// login to local system
 	fmt.Println("Blockchain interactive mode, type 'help' for more information.")
 	var reader = bufio.NewReader(os.Stdin)
 	var userName string
+	var ip string
+	var port string
 	for {
 		fmt.Print(">>> Log in as: ")
-		text, _ := reader.ReadString('\n')
-		text = strings.Replace(text, "\n", "", -1)
-		text = strings.Replace(text, "\r", "", -1)
-		rawInputList := strings.Split(text, " ")
-		var inputList []string
-		for _, input := range rawInputList {
-			if input != "" {
-				inputList = append(inputList, input)
-			}
-		}
+		inputList := ReadCommand(reader)
 		if len(inputList) == 1 {
 			userName = inputList[0]
 			pathExists, err := utils.PathExists(config.PersistentStoragePath + userName)
@@ -53,26 +60,30 @@ func runCli() {
 			fmt.Printf("Expect 1 parameter, got %v instead.\n", len(inputList))
 		}
 	}
+
+	for {
+		fmt.Print(">>> Enter Port: ")
+		inputList := ReadCommand(reader)
+		if len(inputList) == 1 {
+			ip = "localhost" // currently only consider localhost
+			port = inputList[0]
+			time.Sleep(time.Duration(1) * time.Millisecond)
+			break
+		} else {
+			fmt.Printf("Expect 1 parameter, got %v instead. Enter a valid port number\n", len(inputList))
+		}
+	}
 	walletPath := config.PersistentStoragePath + userName + config.WalletFileName
 	blockchainPath := config.PersistentStoragePath + userName + config.BlockchainPath
 	fmt.Printf("Wallet path: %v\n", walletPath)
 	fmt.Printf("Blockchain path: %v\n", blockchainPath)
-	commandLine := cli.InitializeCli(userName)
+	commandLine := cli.InitializeCli(userName, ip, port)
 
 MainLoop:
 	for {
 		// parse input
 		fmt.Print(">>>")
-		text, _ := reader.ReadString('\n')
-		text = strings.Replace(text, "\n", "", -1)
-		text = strings.Replace(text, "\r", "", -1)
-		rawInputList := strings.Split(text, " ")
-		var inputList []string
-		for _, input := range rawInputList {
-			if input != "" {
-				inputList = append(inputList, input)
-			}
-		}
+		inputList := ReadCommand(reader)
 
 		// main loop
 		if len(inputList) == 0 {
@@ -158,6 +169,24 @@ MainLoop:
 			// print the chain
 			// syntax: ls chain
 			commandLine.PrintBlockchain()
+		} else if utils.Match(inputList, []string{"ping"}) {
+			// ping 
+			if !utils.CheckArgumentCount(inputList, 3) {
+				continue
+			}
+			commandLine.Ping(inputList[1], inputList[2])
+		} else if utils.Match(inputList, []string{"ls", "connection"}) {
+			// ping 
+			if !utils.CheckArgumentCount(inputList, 2) {
+				continue
+			}
+			commandLine.CheckConnection()
+		} else if utils.Match(inputList, []string{"broadcast"}) {
+			// ping 
+			if !utils.CheckArgumentCount(inputList, 2) {
+				continue
+			}
+			commandLine.Broadcast(inputList[1])
 		} else if utils.Match(inputList, []string{"help"}) {
 			// print help
 			// syntax: help
@@ -194,18 +223,18 @@ func test_network() {
 
 	wallets, _ := wallet.InitializeWallets(agent)
 	// utils.Handle(err)
-	agentAddr := wallets.CreateWallet(agent)
-	agentWallet := wallets.GetWallet(agent)
+	// agentAddr := wallets.CreateWallet(agent)
+	// agentWallet := wallets.GetWallet(agent)
 	if chain == nil {
 		chain = blockchain.InitBlockChain(wallets, agent)
 	}
-	meta := network.NetworkMetaData{Ip: "localhost", Port: ports[agent], Name: agent, PublicKey: agentWallet.PublicKey, WalletAddr: agentAddr}
+	meta := network.NetworkMetaData{Ip:"localhost", Port:ports[agent]}
+	// agent_meta := network.UserMetaData{Name:agent, PublicKey: agentWallet.PublicKey, WalletAddr: agentAddr}
 	node := network.InitializeNode(wallets, chain, meta)
-	err = node.Serve()
-	utils.Handle(err)
-
-	if agent == "Bob" {
-		alice_meta := network.NetworkMetaData{Ip: "localhost", Port: ports["Alice"], Name: "Alice"}
+	node.Serve()
+	
+	if agent == "Bob" || agent == "Charlie" || agent == "David" {
+		alice_meta := network.NetworkMetaData{Ip:"localhost", Port:ports["Alice"]}
 		node.SendPingMessage(alice_meta)
 	}
 
