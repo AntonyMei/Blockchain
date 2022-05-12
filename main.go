@@ -107,10 +107,7 @@ MainLoop:
 		} else if utils.Match(inputList, []string{"mk", "tx"}) {
 			// create new tx
 			// syntax: mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...
-			if !utils.CheckArgumentCount(inputList, 8) {
-				continue
-			}
-			if inputList[2] != "-n" || inputList[4] != "-s" || inputList[6] != "-r" {
+			if len(inputList) < 8 || inputList[2] != "-n" || inputList[4] != "-s" || inputList[6] != "-r" {
 				fmt.Printf("Syntax error: mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...\n")
 				continue
 			}
@@ -132,7 +129,6 @@ MainLoop:
 				}
 				amountList = append(amountList, amount)
 			}
-			fmt.Printf("%p\n", receiverNameList)
 			commandLine.CreateTransaction(txName, senderName, receiverNameList, amountList)
 		} else if utils.Match(inputList, []string{"ls", "tx"}) {
 			// list all TXes
@@ -141,10 +137,7 @@ MainLoop:
 		} else if utils.Match(inputList, []string{"mine"}) {
 			// mine a new block
 			// syntax: mine -n [miner name] -d [block description] -tx [tx name 1] ...
-			if !utils.CheckArgumentCount(inputList, 5) {
-				continue
-			}
-			if inputList[1] != "-n" || inputList[3] != "-d" || len(inputList) == 6 {
+			if len(inputList) < 5 || inputList[1] != "-n" || inputList[3] != "-d" || len(inputList) == 6 {
 				fmt.Printf("Syntax error: mine -n [miner name] -d [block description] -tx [tx name 1] ...\n")
 				continue
 			}
@@ -152,7 +145,7 @@ MainLoop:
 			blockDescription := inputList[4]
 			var txNameList []string
 			if len(inputList) > 6 {
-				if inputList[6] != "-tx" {
+				if inputList[5] != "-tx" {
 					fmt.Printf("Syntax error: mine -n [miner name] -d [block description] -tx [tx name 1] ...\n")
 					continue
 				}

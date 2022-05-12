@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/transaction"
+	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
 )
 
@@ -28,6 +29,7 @@ func InitializeCli(userName string) *Cli {
 
 	// initialize cli
 	cli := Cli{Wallets: wallets, Blockchain: chain}
+	cli.pendingTXMap = make(map[string]*transaction.Transaction)
 
 	// perform some magic op
 	transaction.MagicOp()
@@ -119,14 +121,14 @@ func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []s
 	// get sender wallet and receiver addresses
 	fromWallet := cli.Wallets.GetWallet(sender)
 	if fromWallet == nil {
-		fmt.Printf("Error: No wallet with name %x.\n", sender)
+		fmt.Printf("Error: No wallet with name %s.\n", sender)
 		return
 	}
 	var toAddrList [][]byte
 	for _, receiver := range receiverList {
 		receiverAddr := cli.Wallets.GetKnownAddress(receiver)
 		if receiverAddr == nil {
-			fmt.Printf("Error: No known address with name %x.\n", receiver)
+			fmt.Printf("Error: No known address with name %s.\n", receiver)
 			return
 		}
 		toAddrList = append(toAddrList, receiverAddr.Address)
@@ -134,15 +136,15 @@ func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []s
 
 	// create TX and put into pending zone
 	newTX := cli.Blockchain.GenerateTransaction(fromWallet, toAddrList, amountList)
-	txKey := txName + "::" + string(newTX.TxID[:8])
+	txKey := txName + "::" + string(utils.Base58Encode(newTX.TxID[:8]))
 	cli.pendingTXMap[txKey] = newTX
-	fmt.Printf("New transaction: %x.\n", txKey)
+	fmt.Printf("New transaction: %s.\n", txKey)
 }
 
 func (cli *Cli) ListPendingTransactions() {
 	idx := 0
 	for txKey := range cli.pendingTXMap {
-		fmt.Printf("Transaction %v: %x\n", idx, txKey)
+		fmt.Printf("Transaction %v: %s\n", idx, txKey)
 		idx += 1
 	}
 }
@@ -151,7 +153,7 @@ func (cli *Cli) MineBlock(minerName string, description string, txNameList []str
 	// get miner wallet
 	minerWallet := cli.Wallets.GetWallet(minerName)
 	if minerWallet == nil {
-		fmt.Printf("Error: No wallet with name %x.\n", minerName)
+		fmt.Printf("Error: No wallet with name %s.\n", minerName)
 		return
 	}
 	// get tx and remove from pending tx list
@@ -159,7 +161,8 @@ func (cli *Cli) MineBlock(minerName string, description string, txNameList []str
 	for _, txName := range txNameList {
 		tx := cli.pendingTXMap[txName]
 		if tx == nil {
-			fmt.Printf("Error: no transaction with name %x.\n", txName)
+			fmt.Printf("Error: no transaction with name %s.\n", txName)
+			return
 		}
 		blockTXList = append(blockTXList, tx)
 	}
