@@ -146,3 +146,42 @@ func (cli *Cli) ListPendingTransactions() {
 		idx += 1
 	}
 }
+
+func (cli *Cli) MineBlock(minerName string, description string, txNameList []string) {
+	// get miner wallet
+	minerWallet := cli.Wallets.GetWallet(minerName)
+	if minerWallet == nil {
+		fmt.Printf("Error: No wallet with name %x.\n", minerName)
+		return
+	}
+	// get tx and remove from pending tx list
+	var blockTXList []*transaction.Transaction
+	for _, txName := range txNameList {
+		tx := cli.pendingTXMap[txName]
+		if tx == nil {
+			fmt.Printf("Error: no transaction with name %x.\n", txName)
+		}
+		blockTXList = append(blockTXList, tx)
+	}
+	for _, txName := range txNameList {
+		delete(cli.pendingTXMap, txName)
+	}
+	// add a new block
+	cli.Blockchain.AddBlock(minerWallet.Address(), description, blockTXList)
+}
+
+func (cli *Cli) PrintBlockchain() {
+	cli.Blockchain.Log2Terminal()
+}
+
+func (cli *Cli) PrintHelp() {
+	fmt.Println("[1] print help              help")
+	fmt.Println("[2] create wallet           mk wallet [name]")
+	fmt.Println("    create new TX           mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...")
+	fmt.Println("    mine a new block        mine -n [miner name] -d [block description] -tx [tx name 1] ...")
+	fmt.Println("[3] list wallet             ls wallet [name/all]")
+	fmt.Println("    list peer syntax        ls peer [name/all]")
+	fmt.Println("    list all pending TXes   ls tx")
+	fmt.Println("    print whole chain       ls chain")
+	fmt.Println("[4] exit                    exit")
+}

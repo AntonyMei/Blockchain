@@ -22,7 +22,7 @@ func main() {
 
 func runCli() {
 	// login to local system
-	fmt.Println("Blockchain interactive mode, type 'Usage' for more information.")
+	fmt.Println("Blockchain interactive mode, type 'help' for more information.")
 	var reader = bufio.NewReader(os.Stdin)
 	var userName string
 	for {
@@ -138,6 +138,37 @@ MainLoop:
 			// list all TXes
 			// syntax: ls tx
 			commandLine.ListPendingTransactions()
+		} else if utils.Match(inputList, []string{"mine"}) {
+			// mine a new block
+			// syntax: mine -n [miner name] -d [block description] -tx [tx name 1] ...
+			if !utils.CheckArgumentCount(inputList, 5) {
+				continue
+			}
+			if inputList[1] != "-n" || inputList[3] != "-d" || len(inputList) == 6 {
+				fmt.Printf("Syntax error: mine -n [miner name] -d [block description] -tx [tx name 1] ...\n")
+				continue
+			}
+			minerName := inputList[2]
+			blockDescription := inputList[4]
+			var txNameList []string
+			if len(inputList) > 6 {
+				if inputList[6] != "-tx" {
+					fmt.Printf("Syntax error: mine -n [miner name] -d [block description] -tx [tx name 1] ...\n")
+					continue
+				}
+				for idx := 6; idx < len(inputList); idx++ {
+					txNameList = append(txNameList, inputList[idx])
+				}
+			}
+			commandLine.MineBlock(minerName, blockDescription, txNameList)
+		} else if utils.Match(inputList, []string{"ls", "chain"}) {
+			// print the chain
+			// syntax: ls chain
+			commandLine.PrintBlockchain()
+		} else if utils.Match(inputList, []string{"help"}) {
+			// print help
+			// syntax: help
+			commandLine.PrintHelp()
 		} else {
 			fmt.Printf("Unknown command.\n")
 		}
