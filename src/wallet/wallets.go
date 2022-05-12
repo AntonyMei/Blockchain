@@ -13,13 +13,15 @@ import (
 type Wallets struct {
 	PersonalWalletMap map[string]*Wallet
 	KnownAddressMap   map[string]*KnownAddress
+	WalletPath        string
 }
 
-func InitializeWallets() (*Wallets, error) {
+func InitializeWallets(userName string) (*Wallets, error) {
 	// create new wallets
 	wallets := Wallets{}
 	wallets.PersonalWalletMap = make(map[string]*Wallet)
 	wallets.KnownAddressMap = make(map[string]*KnownAddress)
+	wallets.WalletPath = config.PersistentStoragePath + userName + config.WalletFileName
 	err := wallets.LoadFile()
 	return &wallets, err
 }
@@ -63,18 +65,18 @@ func (ws *Wallets) SaveFile() {
 	err := encoder.Encode(ws)
 	utils.Handle(err)
 	// save to file
-	err = ioutil.WriteFile(config.WalletPath, content.Bytes(), 0644)
+	err = ioutil.WriteFile(ws.WalletPath, content.Bytes(), 0644)
 	utils.Handle(err)
 }
 
 func (ws *Wallets) LoadFile() error {
 	// check whether wallet file exists
-	if _, err := os.Stat(config.WalletPath); os.IsNotExist(err) {
+	if _, err := os.Stat(ws.WalletPath); os.IsNotExist(err) {
 		return err
 	}
 
 	// read the file
-	fileContent, err := ioutil.ReadFile(config.WalletPath)
+	fileContent, err := ioutil.ReadFile(ws.WalletPath)
 	utils.Handle(err)
 
 	// encode it back into a wallet

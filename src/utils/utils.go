@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mr-tron/base58"
 	"log"
+	"os"
 )
 
 type BlockStatus int64
@@ -96,4 +97,15 @@ func CheckArgumentCount(inputList []string, expected int) bool {
 		return false
 	}
 	return true
+}
+
+func PathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }

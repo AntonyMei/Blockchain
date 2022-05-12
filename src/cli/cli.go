@@ -10,19 +10,20 @@ import (
 type Cli struct {
 	Wallets    *wallet.Wallets
 	Blockchain *blockchain.BlockChain
+	UserName   string
 }
 
 // Basic
 
-func InitializeCli() *Cli {
+func InitializeCli(userName string) *Cli {
 	// initialize wallets
-	wallets, err := wallet.InitializeWallets()
+	wallets, err := wallet.InitializeWallets(userName)
 	if err == nil {
 		fmt.Printf("Load wallets succeeded.\n")
 	}
 
 	// initialize blockchain
-	chain := blockchain.InitBlockChain(wallets)
+	chain := blockchain.InitBlockChain(wallets, userName)
 
 	// initialize cli
 	cli := Cli{Wallets: wallets, Blockchain: chain}
