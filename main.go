@@ -11,6 +11,7 @@ import (
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -58,6 +59,7 @@ func run_cli() {
 	fmt.Printf("Blockchain path: %v\n", blockchainPath)
 	commandLine := cli.InitializeCli(userName)
 
+MainLoop:
 	for {
 		// parse input
 		fmt.Print(">>>")
@@ -78,26 +80,63 @@ func run_cli() {
 		}
 		if utils.Match(inputList, []string{"exit"}) {
 			// exit
+			// syntax: exit
 			commandLine.Exit()
 			return
 		} else if utils.Match(inputList, []string{"mk", "wallet"}) {
 			// create wallet
+			// syntax: mk wallet [name]
 			if !utils.CheckArgumentCount(inputList, 3) {
 				continue
 			}
 			commandLine.CreateWallet(inputList[2])
 		} else if utils.Match(inputList, []string{"ls", "wallet"}) {
-			// check wallet
+			// list wallet
+			// syntax: ls wallet [name/all]
 			if !utils.CheckArgumentCount(inputList, 3) {
 				continue
 			}
 			commandLine.ListWallet(inputList[2])
 		} else if utils.Match(inputList, []string{"ls", "peer"}) {
-			// check peer
+			// list peer
+			// syntax: ls peer [name/all]
 			if !utils.CheckArgumentCount(inputList, 3) {
 				continue
 			}
 			commandLine.ListKnownAddress(inputList[2])
+		} else if utils.Match(inputList, []string{"mk", "tx"}) {
+			// create new tx
+			// syntax: mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...
+			if !utils.CheckArgumentCount(inputList, 8) {
+				continue
+			}
+			if inputList[2] != "-n" || inputList[4] != "-s" || inputList[6] != "-r" {
+				fmt.Printf("Syntax error: mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...\n")
+				continue
+			}
+			txName := inputList[3]
+			senderName := inputList[5]
+			var receiverNameList []string
+			var amountList []int
+			for idx := 7; idx < len(inputList); idx++ {
+				splitList := strings.Split(text, ":")
+				if len(splitList) != 2 || len(splitList[0]) == 0 || len(splitList[1]) == 0 {
+					fmt.Printf("Syntax error: could not parse receiver list.\n")
+					continue MainLoop
+				}
+				receiverNameList = append(receiverNameList, splitList[0])
+				amount, err := strconv.Atoi(splitList[1])
+				if err != nil {
+					fmt.Printf("Syntax error: could not parse amount.\n")
+					continue MainLoop
+				}
+				amountList = append(amountList, amount)
+			}
+			commandLine.CreateTransaction(txName, senderName, receiverNameList, amountList)
+		} else if utils.Match(inputList, []string{"ls", "tx"}) {
+			// list all TXes
+			// syntax: ls tx
+			commandLine.ListPendingTransactions()
 		} else {
 			fmt.Printf("Unknown command.\n")
 		}
@@ -137,7 +176,8 @@ func test_network() {
 	}
 	meta := network.NetworkMetaData{Ip: "localhost", Port: ports[agent], Name: agent, PublicKey: agentWallet.PublicKey, WalletAddr: agentAddr}
 	node := network.InitializeNode(wallets, chain, meta)
-	node.Serve()
+	err = node.Serve()
+	utils.Handle(err)
 
 	if agent == "Bob" {
 		alice_meta := network.NetworkMetaData{Ip: "localhost", Port: ports["Alice"], Name: "Alice"}
