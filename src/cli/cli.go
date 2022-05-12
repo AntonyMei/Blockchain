@@ -5,17 +5,19 @@ import (
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/wallet"
+	"github.com/AntonyMei/Blockchain/src/network"
 )
 
 type Cli struct {
 	Wallets    *wallet.Wallets
 	Blockchain *blockchain.BlockChain
+	Node 	   *network.Node
 	UserName   string
 }
 
 // Basic
 
-func InitializeCli(userName string) *Cli {
+func InitializeCli(userName string, ip string, port string) *Cli {
 	// initialize wallets
 	wallets, err := wallet.InitializeWallets(userName)
 	if err == nil {
@@ -25,8 +27,12 @@ func InitializeCli(userName string) *Cli {
 	// initialize blockchain
 	chain := blockchain.InitBlockChain(wallets, userName)
 
+	// initialize network node
+	node := network.InitializeNode(wallets, chain, network.NetworkMetaData{Ip: ip, Port: port})
+	node.Serve()
+
 	// initialize cli
-	cli := Cli{Wallets: wallets, Blockchain: chain}
+	cli := Cli{Wallets: wallets, Blockchain: chain, Node: node}
 
 	// perform some magic op
 	transaction.MagicOp()
@@ -63,6 +69,26 @@ func (cli *Cli) CheckWallet(name string) {
 	} else {
 		cli._checkWallet(name)
 	}
+}
+
+// Network
+
+func (cli *Cli) Ping(ip string, port string) {
+	cli.Node.SendPingMessage(network.NetworkMetaData{Ip: ip, Port: port})
+}
+
+func (cli *Cli) CheckConnection() {
+	cli.Node.ConnectionPool.ShowPool()
+}
+
+func (cli *Cli) Broadcast(name string) {
+	wallet := cli.Wallets.GetWallet(name)
+	if wallet == nil {
+		fmt.Printf("Error: no wallet with name %s.\n", name)
+		return
+	}
+	user_meta := network.UserMetaData{Name: name, PublicKey: wallet.PublicKey, WalletAddr: wallet.Address()}
+	cli.Node.BroadcastUserMessage(user_meta)
 }
 
 func (cli *Cli) _checkWallet(name string) {

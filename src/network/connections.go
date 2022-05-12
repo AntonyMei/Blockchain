@@ -3,30 +3,32 @@ package network
 import (
 	"math/rand"
 	"sync"
+	"fmt"
 )
 
 type ConnectionPool struct {
-	pool map[string]NetworkMetaData
+	pool []NetworkMetaData
 	mu sync.RWMutex
 }
 
 func InitializeConnectionPool() *ConnectionPool {
 	cp := ConnectionPool{}
-	cp.pool = make(map[string]NetworkMetaData)
 	return &cp
 }
 
 func (cp *ConnectionPool) AddPeer(peer_meta NetworkMetaData) {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
-	cp.pool[peer_meta.Name] = peer_meta
+	if !cp.ExistsPeer(peer_meta) {
+		cp.pool = append(cp.pool, peer_meta)
+	}
 }
 
 func (cp *ConnectionPool) ExistsPeer(peer_meta NetworkMetaData) bool {
 	cp.mu.RLock()
 	defer cp.mu.RUnlock()
-	for name, meta := range cp.pool {
-		if(name == peer_meta.Name && meta.Ip == peer_meta.Ip && meta.Port == peer_meta.Port) {
+	for _, meta := range cp.pool {
+		if(meta.Ip == peer_meta.Ip && meta.Port == peer_meta.Port) {
 		  return true
 		}
 	  }
@@ -36,16 +38,19 @@ func (cp *ConnectionPool) ExistsPeer(peer_meta NetworkMetaData) bool {
 func (cp *ConnectionPool) GetAlivePeers(count int) []NetworkMetaData {
 	cp.mu.RLock()
 	defer cp.mu.RUnlock()
-	var all_peers []string
-	for name, _ := range cp.pool {
-		all_peers = append(all_peers, name)
-	  }
-	
 	var picked_peers []NetworkMetaData
 	for i := 0; i < count; i++ {
-		randomIndex := rand.Intn(len(all_peers))
-    	peer_name := all_peers[randomIndex]
-		picked_peers = append(picked_peers, cp.pool[peer_name])
+		randomIndex := rand.Intn(len(cp.pool))
+		picked_peers = append(picked_peers, cp.pool[randomIndex])
 	}
 	return picked_peers
+}
+
+func (cp *ConnectionPool) ShowPool() {
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+	fmt.Printf("%d peers in connection pool\n", len(cp.pool))
+	for _, peer := range cp.pool {
+		fmt.Printf("    Ip = %s, Port = %s\n", peer.Ip, peer.Port)
+	}
 }

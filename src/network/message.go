@@ -8,10 +8,23 @@ import (
 type NetworkMetaData struct {
 	Ip string
 	Port string
+}
+
+type UserMetaData struct {
 	Name string
 	PublicKey []byte
 	WalletAddr []byte
 }
+
+type UserMessage struct {
+	Meta NetworkMetaData
+	UserMeta UserMetaData
+}
+
+func CreateUserMessage(Meta NetworkMetaData, UserMeta UserMetaData) UserMessage {
+	msg := UserMessage{Meta, UserMeta}
+	return msg
+} 
 
 type PingMessage struct {
 	Meta NetworkMetaData
