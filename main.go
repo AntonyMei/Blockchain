@@ -176,13 +176,13 @@ MainLoop:
 			}
 			commandLine.Ping(inputList[1], inputList[2])
 		} else if utils.Match(inputList, []string{"ls", "connection"}) {
-			// ping 
+			// list connections 
 			if !utils.CheckArgumentCount(inputList, 2) {
 				continue
 			}
 			commandLine.CheckConnection()
 		} else if utils.Match(inputList, []string{"broadcast"}) {
-			// ping 
+			// broadcast user data
 			if !utils.CheckArgumentCount(inputList, 2) {
 				continue
 			}
@@ -242,6 +242,55 @@ func test_network() {
 		time.Sleep(time.Duration(1) * time.Millisecond)
 	}
 }
+
+func test_network_tx() {
+	println("Network Test")
+	agent := os.Args[1]
+	ports := map[string]string{
+		"Alice":   "5000",
+		"Bob":     "5001",
+		"Charlie": "5002",
+		"David":   "5003",
+	}
+	pathExists, err := utils.PathExists(config.PersistentStoragePath + agent)
+	utils.Handle(err)
+	if pathExists {
+		fmt.Printf("Login as %v.\n", agent)
+	} else {
+		fmt.Printf("New user %v.\n", agent)
+		err := os.Mkdir(config.PersistentStoragePath+agent, os.ModePerm)
+		utils.Handle(err)
+	}
+	commandLine := cli.InitializeCli(agent, "localhost", ports[agent])
+
+	if agent == "Bob" || agent == "Charlie" || agent == "David" {
+		commandLine.Ping("localhost", ports["Alice"])
+	}
+
+	time.Sleep(time.Duration(100) * time.Millisecond)
+
+	var reader = bufio.NewReader(os.Stdin)
+	fmt.Println("Enter to continue...")
+	ReadCommand(reader)
+
+	commandLine.CreateWallet(agent)
+	if agent == "Alice" {
+		fmt.Println("Add First Block")
+		commandLine.MineBlock(agent, "FirstBlock", []string{})
+
+		commandLine.Broadcast(agent)
+
+		fmt.Println("Add First Transaction")
+		commandLine.CreateTransaction("FirstTx", agent, []string{"Bob"}, []int{33})
+	}
+	if agent == "Bob" {
+		commandLine.Broadcast(agent)
+	}
+	for true {
+		time.Sleep(time.Duration(100) * time.Millisecond)
+	}
+}
+
 
 func test() {
 	println("Wallet Test")

@@ -11,6 +11,7 @@ import (
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
+	"github.com/AntonyMei/Blockchain/src/transaction"
 )
 
 type Node struct {
@@ -18,12 +19,17 @@ type Node struct {
 	Wallets *wallet.Wallets
 	Chain *blockchain.BlockChain
 	Meta NetworkMetaData
+	CliHandleTxFromNetwork func(string, *transaction.Transaction)
 }
 
 func InitializeNode(w *wallet.Wallets, chain *blockchain.BlockChain, meta NetworkMetaData) *Node {
-	nd := Node{InitializeConnectionPool(), w, chain, meta}
+	nd := Node{ConnectionPool: InitializeConnectionPool(), Wallets: w, Chain: chain, Meta: meta}
 	nd.ConnectionPool.AddPeer(nd.Meta)
 	return &nd
+}
+
+func (nd *Node) SetCliTransactionFunc(f func(string, *transaction.Transaction)) {
+	nd.CliHandleTxFromNetwork = f
 }
 
 func PrintHeader(w http.ResponseWriter, req *http.Request) {
@@ -33,7 +39,6 @@ func PrintHeader(w http.ResponseWriter, req *http.Request) {
         }
     }
 }
-
 
 func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 	PrintHeader(w, req)
@@ -112,6 +117,9 @@ func (nd *Node) HandleTransactionMessage(w http.ResponseWriter, req *http.Reques
 	/*TODO: add transaction into block chain
 	tx := msg.Transaction
 	nd.Chain.AddTransaction(tx)*/
+	txKey := msg.TxKey
+	tx := msg.Transaction
+	nd.CliHandleTxFromNetwork(txKey, tx)
 }
 
 func (nd *Node) HandleBlockMessage(w http.ResponseWriter, req *http.Request) {
@@ -170,16 +178,41 @@ func (nd *Node) SendPingMessage(meta NetworkMetaData) {
 }
 
 func (nd *Node) BroadcastUserMessage(userMeta UserMetaData) {
-	peers := nd.ConnectionPool.GetAlivePeers(20)
+	peers := nd.ConnectionPool.GetAlivePeers(50)
 	
 	msg := CreateUserMessage(nd.Meta, userMeta)
 	var result bytes.Buffer
 	var encoder = gob.NewEncoder(&result)
 	utils.Handle(encoder.Encode(msg))
 
+	var SentPeer = make(map[NetworkMetaData]bool)
 	for _, peer := range peers {
-		nd.SendMessage("user", peer, &result)
+		_, exist := SentPeer[peer]
+		if !exist {
+			SentPeer[peer] = true
+			nd.SendMessage("user", peer, &result)
+		}
 	}
+}
+
+func (nd *Node) BroadcastTransaction(txKey string, tx *transaction.Transaction) {
+	fmt.Printf("broadcast transaction %s.\n", txKey)
+	peers := nd.ConnectionPool.GetAlivePeers(50)
+
+	msg := CreateTransactionMessage(nd.Meta, txKey, tx)
+	var result bytes.Buffer
+	var encoder = gob.NewEncoder(&result)
+	utils.Handle(encoder.Encode(msg))
+	
+	var SentPeer = make(map[NetworkMetaData]bool)
+	for _, peer := range peers {
+		_, exist := SentPeer[peer]
+		if !exist {
+			SentPeer[peer] = true
+			nd.SendMessage("transaction", peer, &result)
+		}
+	}
+
 }
 
 func (nd *Node) Serve() error {

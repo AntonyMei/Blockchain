@@ -21,6 +21,7 @@ const (
 	SourceTXONotFound
 	WrongTXInputSignature
 	InputSumOutputSumMismatch
+	DoubleSpending
 )
 
 func (bs BlockStatus) String() string {
@@ -43,6 +44,8 @@ func (bs BlockStatus) String() string {
 		return "WrongTXInputSignature"
 	case InputSumOutputSumMismatch:
 		return "InputSumOutputSumMismatch"
+	case DoubleSpending:
+		return "DoubleSpending"
 	}
 	return "Unknown"
 }

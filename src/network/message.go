@@ -48,11 +48,12 @@ func CreatePeersMessage(Meta NetworkMetaData, Peers []NetworkMetaData) PeersMess
 
 type TransactionMessage struct {
 	Meta NetworkMetaData
-	Transaction transaction.Transaction
+	TxKey string
+	Transaction *transaction.Transaction
 }
 
-func CreateTransactionMessage(Meta NetworkMetaData, Transaction transaction.Transaction) TransactionMessage {
-	msg := TransactionMessage{Meta, Transaction}
+func CreateTransactionMessage(Meta NetworkMetaData, txKey string, Transaction *transaction.Transaction) TransactionMessage {
+	msg := TransactionMessage{Meta, txKey, Transaction}
 	return msg
 }
 

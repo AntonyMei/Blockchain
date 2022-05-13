@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"sync"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
@@ -15,6 +16,9 @@ type Cli struct {
 	UserName     string
 	pendingTXMap map[string]*transaction.Transaction
 	Node 		 *network.Node
+
+	// thread safety
+	pendingTXMapMtx sync.Mutex
 }
 
 // Basic
@@ -36,6 +40,9 @@ func InitializeCli(userName string, ip string, port string) *Cli {
 	// initialize cli
 	cli := Cli{Wallets: wallets, Blockchain: chain, Node: node}
 	cli.pendingTXMap = make(map[string]*transaction.Transaction)
+
+	// transaction from network
+	node.SetCliTransactionFunc(cli.HandleTxFromNetwork)
 
 	// perform some magic op
 	transaction.MagicOp()
@@ -145,6 +152,9 @@ func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []s
 	txKey := txName + "::" + string(utils.Base58Encode(newTX.TxID[:8]))
 	cli.pendingTXMap[txKey] = newTX
 	fmt.Printf("New transaction: %s.\n", txKey)
+
+	// broadcast transaction
+	cli.Node.BroadcastTransaction(txKey, newTX)
 }
 
 func (cli *Cli) ListPendingTransactions() {
@@ -201,6 +211,17 @@ func (cli *Cli) Broadcast(name string) {
 	}
 	user_meta := network.UserMetaData{Name: name, PublicKey: wallet.PublicKey, WalletAddr: wallet.Address()}
 	cli.Node.BroadcastUserMessage(user_meta)
+}
+
+func (cli *Cli) HandleTxFromNetwork(txKey string, tx *transaction.Transaction) {
+	_, exists := cli.pendingTXMap[txKey]
+	if !exists {
+		cli.pendingTXMap[txKey] = tx
+		fmt.Printf("Receive transaction from network: %s.\n", txKey)
+
+		// broadcast again
+		cli.Node.BroadcastTransaction(txKey, tx)
+	}
 }
 
 

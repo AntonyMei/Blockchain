@@ -91,6 +91,43 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 	utils.Handle(err)
 }
 
+func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) {
+	err := bc.Database.Update(func(txn *badger.Txn) error {
+		// get last hash from database
+		var lastHash []byte
+		item, err := txn.Get([]byte("lasthash"))
+		utils.Handle(err)
+		err = item.Value(func(val []byte) error {
+			lastHash = val
+			return nil
+		})
+		utils.Handle(err)
+
+		// whether this is a new block
+		if bytes.Compare(NetBlock.PrevHash, lastHash) != 0 {
+			// this is not not a new block
+			return nil
+		}
+
+		// check block
+		verifyResult := bc.ValidateBlock(NetBlock)
+		fmt.Printf("Verify block: %v.\n", verifyResult.String())
+		if verifyResult != utils.Verified {
+			return nil
+		}
+
+		// TODO: regenerate spending plan for pending transactions
+
+		// add into db
+		err = txn.Set(NetBlock.Hash, NetBlock.Serialize())
+		utils.Handle(err)
+		err = txn.Set([]byte("lasthash"), NetBlock.Hash)
+		utils.Handle(err)
+		return nil
+	})
+	utils.Handle(err)
+}
+
 func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 	wallets := bc.Wallets
 	// check if this block is genesis
@@ -159,6 +196,7 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 	}
 	// check transactions
 	coinbaseTXCount := 0
+	var SpentUXTOMap = make(map[string]bool)
 	for _, tx := range block.TransactionList {
 		// check if it is coinbase TX
 		if tx.IsCoinbase() {
@@ -186,6 +224,12 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 			signer := UTXOAddrMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)]
 			if !txInput.Verify(&signer.PublicKey) {
 				return utils.WrongTXInputSignature
+			}
+			_, exists = SpentUXTOMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)]
+			if !exists {
+				SpentUXTOMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)] = true
+			} else {
+				return utils.DoubleSpending
 			}
 			// accumulate to inputSum
 			inputSum += sourceTx.TxOutputList[txInput.TxOutputIdx].Value
