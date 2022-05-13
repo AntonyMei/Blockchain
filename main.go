@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	runCli()
+	test_network_tx()
 }
 
 func ReadCommand(reader *bufio.Reader) []string {

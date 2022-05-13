@@ -25,7 +25,6 @@ func (cp *ConnectionPool) AddPeer(peer_meta NetworkMetaData) bool {
 		}
 	  }
 	cp.pool = append(cp.pool, peer_meta)
-	fmt.Printf("len(pool)=%d\n",len(cp.pool))
 	return true
 }
 
