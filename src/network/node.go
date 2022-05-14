@@ -8,6 +8,7 @@ import (
 	"net/http"
     "net/url"
 	"time"
+	"sync"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
 	"github.com/AntonyMei/Blockchain/src/blocks"
@@ -20,6 +21,8 @@ type Node struct {
 	Wallets *wallet.Wallets
 	Chain *blockchain.BlockChain
 	Meta NetworkMetaData
+	mu sync.Mutex
+	Blocks []*blocks.Block
 	CliHandleTxFromNetwork func(string, *transaction.Transaction)
 	CliHandleBlockFromNetwork func(*blocks.Block)
 }
@@ -46,6 +49,23 @@ func PrintHeader(w http.ResponseWriter, req *http.Request) {
     }
 }
 
+func (nd *Node) AddBlock(block *blocks.Block) {
+	nd.mu.Lock()
+	defer nd.mu.Unlock()
+	nd.Blocks = append(nd.Blocks, block)
+}
+
+func (nd *Node) GetBlock(blockHeight int) *blocks.Block {
+	nd.mu.Lock()
+	defer nd.mu.Unlock()
+	for _, block := range nd.Blocks {
+		if block.Height == blockHeight {
+			return block
+		}
+	}
+	return nil
+}
+
 func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 	PrintHeader(w, req)
 
@@ -59,7 +79,7 @@ func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 
-	fmt.Printf("Receive PING message from http://%s:%s.\n", msg.Meta.Ip, msg.Meta.Port)
+	fmt.Printf("Receive PING message from http://%s:%s with block height %d.\n", msg.Meta.Ip, msg.Meta.Port, msg.BlockHeight)
 	
 	nd.SendPeersMessage(msg.Meta)
 	
@@ -67,7 +87,13 @@ func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 		nd.SendPingMessage(msg.Meta, nd.Chain.BlockHeight)
 	}
 
-	// TODO: synchronize block according to block height
+	// synchronize block according to block height
+	if msg.BlockHeight < nd.Chain.BlockHeight {
+		block := nd.GetBlock(msg.BlockHeight + 1)
+		if block != nil {
+			nd.SendBlockMessage(msg.Meta, block)
+		}
+	}
 }
 
 func (nd *Node) HandlePeersMessage(w http.ResponseWriter, req *http.Request) {
@@ -153,7 +179,9 @@ func (nd *Node) SendMessage(channel string, meta NetworkMetaData, buf *bytes.Buf
 	utils.Handle(err)
 
 	resp, err := c.Post(url.String(), "", bytes.NewBuffer(buf.Bytes()))
-	utils.Handle(err)
+	if err != nil {
+		return
+	}
 	body, err := ioutil.ReadAll(resp.Body)
 	utils.Assert((string(body)[len(string(body))-3:] == "ACK"), fmt.Sprintf("response = ACK, but get %s\n", body))
 	defer resp.Body.Close()
@@ -171,14 +199,21 @@ func (nd *Node) SendPeersMessage(meta NetworkMetaData) {
 }
 
 func (nd *Node) SendPingMessage(meta NetworkMetaData, blockHeight int) {
-
-	// TODO support BlockHeight
 	msg := CreatePingMessage(nd.Meta, blockHeight)
 	var result bytes.Buffer
 	var encoder = gob.NewEncoder(&result)
 	utils.Handle(encoder.Encode(msg))
 
 	nd.SendMessage("ping", meta, &result)
+}
+
+func (nd *Node) SendBlockMessage(meta NetworkMetaData, block *blocks.Block) {
+	msg := CreateBlockMessage(nd.Meta, block)
+	var result bytes.Buffer
+	var encoder = gob.NewEncoder(&result)
+	utils.Handle(encoder.Encode(msg))
+
+	nd.SendMessage("block", meta, &result)
 }
 
 func (nd *Node) BroadcastUserMessage(userMeta UserMetaData) {

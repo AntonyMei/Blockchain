@@ -60,6 +60,10 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 	})
 	utils.Handle(err)
 
+	block := blockchain.Iterator().GetVal()
+	blockchain.LastHash = block.Hash
+	blockchain.BlockHeight = block.Height
+
 	return &blockchain
 }
 
@@ -102,7 +106,8 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 	return block
 }
 
-func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) {
+func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) bool {
+	validBlock := false
 	err := bc.Database.Update(func(txn *badger.Txn) error {
 		// get last hash from database
 		var lastHash []byte
@@ -126,6 +131,9 @@ func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) {
 		if verifyResult != utils.Verified {
 			return nil
 		}
+		bc.LastHash = NetBlock.Hash
+		bc.BlockHeight = NetBlock.Height
+		validBlock = true
 
 		// add into db
 		err = txn.Set(NetBlock.Hash, NetBlock.Serialize())
@@ -135,8 +143,7 @@ func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) {
 		return nil
 	})
 	utils.Handle(err)
-	bc.LastHash = NetBlock.Hash
-	bc.BlockHeight = NetBlock.Height
+	return validBlock
 }
 
 func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
@@ -221,6 +228,8 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 		txCopy := transaction.Transaction{TxInputList: tx.TxInputList, TxOutputList: tx.TxOutputList}
 		txCopy.SetID()
 		if bytes.Compare(txCopy.TxID, tx.TxID) != 0 {
+			tx.Log2Terminal()
+			txCopy.Log2Terminal()
 			return utils.WrongTxID
 		}
 		// check each input of TX

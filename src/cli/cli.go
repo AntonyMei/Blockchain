@@ -191,6 +191,13 @@ MainLoop:
 		case <-time.After(time.Duration(10) * time.Millisecond):
 			// handle blocks from network
 			commandLine.HandleNetworkData()
+			// broadcast all private users' id
+			accountNames := commandLine.Wallets.GetAllWalletNames()
+			for _, name := range accountNames {
+				wallet := commandLine.Wallets.GetWallet(name)
+				user_meta := network.UserMetaData{Name: name, PublicKey: wallet.PublicKey, WalletAddr: wallet.Address()}
+				commandLine.Node.BroadcastUserMessage(user_meta)
+			}
 		}
 	}
 }
@@ -330,6 +337,7 @@ func (cli *Cli) MineBlock(minerName string, description string, txNameList []str
 	// add a new block
 	newBlock := cli.Blockchain.AddBlock(minerWallet.Address(), description, blockTXList)
 	cli.Node.BroadcastBlock(newBlock)
+	cli.Node.AddBlock(newBlock)
 	cli.NetworkBlockCache.SetLastHash(cli.Blockchain.LastHash)
 }
 
@@ -377,7 +385,11 @@ func (cli *Cli) HandleNetworkData() {
 	// handle block from network
 	block := cli.NetworkBlockCache.PopBlock()
 	if block != nil {
-		cli.Blockchain.AddBlockFromNetwork(block)
+		validBlock := cli.Blockchain.AddBlockFromNetwork(block)
+
+		if !validBlock {
+			return
+		}
 
 		// remove duplicate pending transactions
 		allPendingTxKeys, allPendingTxs := cli.pendingTXMap.GetAllTx()
@@ -392,6 +404,7 @@ func (cli *Cli) HandleNetworkData() {
 				cli.pendingTXMap.DeleteTx(txKey)
 			}
 		}
+		cli.Node.AddBlock(block)
 		cli.NetworkBlockCache.SetLastHash(cli.Blockchain.LastHash)
 	}
 
