@@ -10,6 +10,7 @@ import (
 	"time"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
+	"github.com/AntonyMei/Blockchain/src/blocks"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 )
@@ -20,6 +21,7 @@ type Node struct {
 	Chain *blockchain.BlockChain
 	Meta NetworkMetaData
 	CliHandleTxFromNetwork func(string, *transaction.Transaction)
+	CliHandleBlockFromNetwork func(*blocks.Block)
 }
 
 func InitializeNode(w *wallet.Wallets, chain *blockchain.BlockChain, meta NetworkMetaData) *Node {
@@ -30,6 +32,10 @@ func InitializeNode(w *wallet.Wallets, chain *blockchain.BlockChain, meta Networ
 
 func (nd *Node) SetCliTransactionFunc(f func(string, *transaction.Transaction)) {
 	nd.CliHandleTxFromNetwork = f
+}
+
+func (nd *Node) SetCliBlockFunc(f func(*blocks.Block)) {
+	nd.CliHandleBlockFromNetwork = f
 }
 
 func PrintHeader(w http.ResponseWriter, req *http.Request) {
@@ -134,11 +140,9 @@ func (nd *Node) HandleBlockMessage(w http.ResponseWriter, req *http.Request) {
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 	
-	/*TODO: add block into block chain
-	1. validate block & nounce
-	2. validate transaction in comming block
-	3. Recompute unspent transactions & revalidate transactions
-	*/
+	fmt.Printf("Get Block from Ip=%s Port=%s.\n", msg.Meta.Ip, msg.Meta.Port)
+
+	nd.CliHandleBlockFromNetwork(msg.Block)
 }
 
 func (nd *Node) SendMessage(channel string, meta NetworkMetaData, buf *bytes.Buffer) {
@@ -196,14 +200,14 @@ func (nd *Node) BroadcastUserMessage(userMeta UserMetaData) {
 }
 
 func (nd *Node) BroadcastTransaction(txKey string, tx *transaction.Transaction) {
-	fmt.Printf("broadcast transaction %s.\n", txKey)
+	//fmt.Printf("Broadcast transaction %s.\n", txKey)
 	peers := nd.ConnectionPool.GetAlivePeers(50)
 
 	msg := CreateTransactionMessage(nd.Meta, txKey, tx)
 	var result bytes.Buffer
 	var encoder = gob.NewEncoder(&result)
 	utils.Handle(encoder.Encode(msg))
-	
+
 	var SentPeer = make(map[NetworkMetaData]bool)
 	for _, peer := range peers {
 		_, exist := SentPeer[peer]
@@ -213,6 +217,26 @@ func (nd *Node) BroadcastTransaction(txKey string, tx *transaction.Transaction) 
 		}
 	}
 
+}
+
+func (nd *Node) BroadcastBlock(block *blocks.Block) {
+	//fmt.Printf("Broadcast block with Hash %x.\n", block.Hash)
+	peers := nd.ConnectionPool.GetAlivePeers(50)
+	
+	msg := CreateBlockMessage(nd.Meta, block)
+	var result bytes.Buffer
+	var encoder = gob.NewEncoder(&result)
+	utils.Handle(encoder.Encode(msg))
+
+	var SentPeer = make(map[NetworkMetaData]bool)
+	for _, peer := range peers {
+		_, exist := SentPeer[peer]
+		if !exist {
+			fmt.Printf("Send block to Ip=%s, Port=%s.\n", peer.Ip, peer.Port)
+			SentPeer[peer] = true
+			nd.SendMessage("block", peer, &result)
+		}
+	}
 }
 
 func (nd *Node) Serve() error {

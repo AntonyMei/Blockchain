@@ -7,6 +7,8 @@ import (
 	"github.com/mr-tron/base58"
 	"log"
 	"os"
+	"bufio"
+	"strings"
 )
 
 type BlockStatus int64
@@ -111,4 +113,31 @@ func PathExists(path string) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+func ReadCommand(reader *bufio.Reader) []string {
+	text, _ := reader.ReadString('\n')
+	text = strings.Replace(text, "\n", "", -1)
+	text = strings.Replace(text, "\r", "", -1)
+	rawInputList := strings.Split(text, " ")
+	var inputList []string
+	for _, input := range rawInputList {
+		if input != "" {
+			inputList = append(inputList, input)
+		}
+	}
+	return inputList
+}
+
+func ParseInput(text string) []string {
+	text = strings.Replace(text, "\n", "", -1)
+	text = strings.Replace(text, "\r", "", -1)
+	rawInputList := strings.Split(text, " ")
+	var inputList []string
+	for _, input := range rawInputList {
+		if input != "" {
+			inputList = append(inputList, input)
+		}
+	}
+	return inputList
 }

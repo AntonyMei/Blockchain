@@ -11,27 +11,11 @@ import (
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 )
 
 func main() {
-	test_network_tx()
-}
-
-func ReadCommand(reader *bufio.Reader) []string {
-	text, _ := reader.ReadString('\n')
-	text = strings.Replace(text, "\n", "", -1)
-	text = strings.Replace(text, "\r", "", -1)
-	rawInputList := strings.Split(text, " ")
-	var inputList []string
-	for _, input := range rawInputList {
-		if input != "" {
-			inputList = append(inputList, input)
-		}
-	}
-	return inputList
+	runCli()
 }
 
 func runCli() {
@@ -43,7 +27,7 @@ func runCli() {
 	var port string
 	for {
 		fmt.Print(">>> Log in as: ")
-		inputList := ReadCommand(reader)
+		inputList := utils.ReadCommand(reader)
 		if len(inputList) == 1 {
 			userName = inputList[0]
 			pathExists, err := utils.PathExists(config.PersistentStoragePath + userName)
@@ -63,7 +47,7 @@ func runCli() {
 
 	for {
 		fmt.Print(">>> Enter Port: ")
-		inputList := ReadCommand(reader)
+		inputList := utils.ReadCommand(reader)
 		if len(inputList) == 1 {
 			ip = "localhost" // currently only consider localhost
 			port = inputList[0]
@@ -79,123 +63,7 @@ func runCli() {
 	fmt.Printf("Blockchain path: %v\n", blockchainPath)
 	commandLine := cli.InitializeCli(userName, ip, port)
 
-MainLoop:
-	for {
-		// parse input
-		fmt.Print(">>>")
-		inputList := ReadCommand(reader)
-
-		// main loop
-		if len(inputList) == 0 {
-			continue
-		}
-		if utils.Match(inputList, []string{"exit"}) {
-			// exit
-			// syntax: exit
-			commandLine.Exit()
-			return
-		} else if utils.Match(inputList, []string{"mk", "wallet"}) {
-			// create wallet
-			// syntax: mk wallet [name]
-			if !utils.CheckArgumentCount(inputList, 3) {
-				continue
-			}
-			commandLine.CreateWallet(inputList[2])
-		} else if utils.Match(inputList, []string{"ls", "wallet"}) {
-			// list wallet
-			// syntax: ls wallet [name/all]
-			if !utils.CheckArgumentCount(inputList, 3) {
-				continue
-			}
-			commandLine.ListWallet(inputList[2])
-		} else if utils.Match(inputList, []string{"ls", "peer"}) {
-			// list peer
-			// syntax: ls peer [name/all]
-			if !utils.CheckArgumentCount(inputList, 3) {
-				continue
-			}
-			commandLine.ListKnownAddress(inputList[2])
-		} else if utils.Match(inputList, []string{"mk", "tx"}) {
-			// create new tx
-			// syntax: mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...
-			if len(inputList) < 8 || inputList[2] != "-n" || inputList[4] != "-s" || inputList[6] != "-r" {
-				fmt.Printf("Syntax error: mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...\n")
-				continue
-			}
-			txName := inputList[3]
-			senderName := inputList[5]
-			var receiverNameList []string
-			var amountList []int
-			for idx := 7; idx < len(inputList); idx++ {
-				splitList := strings.Split(inputList[idx], ":")
-				if len(splitList) != 2 || len(splitList[0]) == 0 || len(splitList[1]) == 0 {
-					fmt.Printf("Syntax error: could not parse receiver list.\n")
-					continue MainLoop
-				}
-				receiverNameList = append(receiverNameList, splitList[0])
-				amount, err := strconv.Atoi(splitList[1])
-				if err != nil {
-					fmt.Printf("Syntax error: could not parse amount.\n")
-					continue MainLoop
-				}
-				amountList = append(amountList, amount)
-			}
-			commandLine.CreateTransaction(txName, senderName, receiverNameList, amountList)
-		} else if utils.Match(inputList, []string{"ls", "tx"}) {
-			// list all TXes
-			// syntax: ls tx
-			commandLine.ListPendingTransactions()
-		} else if utils.Match(inputList, []string{"mine"}) {
-			// mine a new block
-			// syntax: mine -n [miner name] -d [block description] -tx [tx name 1] ...
-			if len(inputList) < 5 || inputList[1] != "-n" || inputList[3] != "-d" || len(inputList) == 6 {
-				fmt.Printf("Syntax error: mine -n [miner name] -d [block description] -tx [tx name 1] ...\n")
-				continue
-			}
-			minerName := inputList[2]
-			blockDescription := inputList[4]
-			var txNameList []string
-			if len(inputList) > 6 {
-				if inputList[5] != "-tx" {
-					fmt.Printf("Syntax error: mine -n [miner name] -d [block description] -tx [tx name 1] ...\n")
-					continue
-				}
-				for idx := 6; idx < len(inputList); idx++ {
-					txNameList = append(txNameList, inputList[idx])
-				}
-			}
-			commandLine.MineBlock(minerName, blockDescription, txNameList)
-		} else if utils.Match(inputList, []string{"ls", "chain"}) {
-			// print the chain
-			// syntax: ls chain
-			commandLine.PrintBlockchain()
-		} else if utils.Match(inputList, []string{"ping"}) {
-			// ping 
-			if !utils.CheckArgumentCount(inputList, 3) {
-				continue
-			}
-			commandLine.Ping(inputList[1], inputList[2])
-		} else if utils.Match(inputList, []string{"ls", "connection"}) {
-			// list connections 
-			if !utils.CheckArgumentCount(inputList, 2) {
-				continue
-			}
-			commandLine.CheckConnection()
-		} else if utils.Match(inputList, []string{"broadcast"}) {
-			// broadcast user data
-			if !utils.CheckArgumentCount(inputList, 2) {
-				continue
-			}
-			commandLine.Broadcast(inputList[1])
-		} else if utils.Match(inputList, []string{"help"}) {
-			// print help
-			// syntax: help
-			commandLine.PrintHelp()
-		} else {
-			fmt.Printf("Unknown command.\n")
-		}
-		fmt.Println()
-	}
+	commandLine.Loop(reader)
 }
 
 func test_network() {
@@ -271,7 +139,7 @@ func test_network_tx() {
 
 	var reader = bufio.NewReader(os.Stdin)
 	fmt.Println("Enter to continue...")
-	ReadCommand(reader)
+	utils.ReadCommand(reader)
 
 	commandLine.CreateWallet(agent)
 	if agent == "Alice" {
@@ -290,7 +158,6 @@ func test_network_tx() {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 }
-
 
 func test() {
 	println("Wallet Test")

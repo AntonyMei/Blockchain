@@ -33,15 +33,27 @@ func (p *PendingTXs) ListPendingTransactions() {
 	}
 }
 
-func (p *PendingTXs) GetTx(txName string) *transaction.Transaction {
+func (p *PendingTXs) GetTx(txKey string) *transaction.Transaction {
 	p.mu.Lock()
-	tx := p.pendingTXMap[txName]
+	tx := p.pendingTXMap[txKey]
 	p.mu.Unlock()
 	return tx
 }
 
-func (p *PendingTXs) DeleteTx(txName string) {
+func (p *PendingTXs) DeleteTx(txKey string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	delete(p.pendingTXMap, txName)
+	delete(p.pendingTXMap, txKey)
+}
+
+func (p *PendingTXs) GetAllTx() ([]string, []*transaction.Transaction) {
+	p.mu.Lock()
+	allTxs := []*transaction.Transaction{}
+	allTxKeys := []string{}
+	for txKey, tx := range p.pendingTXMap {
+		allTxs = append(allTxs, tx)
+		allTxKeys = append(allTxKeys, txKey)
+	}
+	p.mu.Unlock()
+	return allTxKeys, allTxs
 }

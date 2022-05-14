@@ -23,6 +23,8 @@ type BlockChain struct {
 	Wallets *wallet.Wallets
 	// proof of difficulty
 	ChainDifficulty int
+	// hash of last block
+	LastHash []byte
 }
 
 func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
@@ -41,6 +43,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 			fmt.Println("Initiating a new blockchain...")
 			genesis := blocks.Genesis(config.InitialChainDifficulty)
 			verifyResult := blockchain.ValidateBlock(genesis)
+			blockchain.LastHash = genesis.Hash
 			fmt.Printf("Verify genesis: %v.\n", verifyResult.String())
 			err = txn.Set(genesis.Hash, genesis.Serialize())
 			utils.Handle(err)
@@ -57,7 +60,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 	return &blockchain
 }
 
-func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*transaction.Transaction) {
+func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*transaction.Transaction) *blocks.Block {
 	// add block should be a database transaction
 	err := bc.Database.Update(func(txn *badger.Txn) error {
 		// get last hash from database
@@ -76,7 +79,7 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 
 		// check block
 		verifyResult := bc.ValidateBlock(newBlock)
-		fmt.Printf("Verify new block: %v.\n", verifyResult.String())
+		fmt.Printf("Verify new block from network: %v.\n", verifyResult.String())
 		if verifyResult != utils.Verified {
 			return nil
 		}
@@ -89,6 +92,9 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 		return nil
 	})
 	utils.Handle(err)
+	block := bc.Iterator().GetVal()
+	bc.LastHash = block.Hash
+	return block
 }
 
 func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) {
@@ -115,8 +121,6 @@ func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) {
 		if verifyResult != utils.Verified {
 			return nil
 		}
-
-		// TODO: regenerate spending plan for pending transactions
 
 		// add into db
 		err = txn.Set(NetBlock.Hash, NetBlock.Serialize())
