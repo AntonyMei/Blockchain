@@ -4,7 +4,6 @@ import (
 	"sync"
 	"github.com/AntonyMei/Blockchain/src/blocks"
 	"bytes"
-	"fmt"
 )
 
 type BlockCache struct {

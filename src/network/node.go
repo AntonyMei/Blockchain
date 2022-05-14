@@ -64,7 +64,7 @@ func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 	nd.SendPeersMessage(msg.Meta)
 	
 	if nd.ConnectionPool.AddPeer(msg.Meta) {
-		nd.SendPingMessage(msg.Meta)
+		nd.SendPingMessage(msg.Meta, nd.Chain.BlockHeight)
 	}
 
 	// TODO: synchronize block according to block height
@@ -86,7 +86,7 @@ func (nd *Node) HandlePeersMessage(w http.ResponseWriter, req *http.Request) {
 
 	for _, peer := range msg.Peers {
 		if nd.ConnectionPool.AddPeer(peer) {
-			nd.SendPingMessage(peer)
+			nd.SendPingMessage(peer, nd.Chain.BlockHeight)
 		}
 	}
 }
@@ -170,10 +170,10 @@ func (nd *Node) SendPeersMessage(meta NetworkMetaData) {
 	nd.SendMessage("peers", meta, &result)
 }
 
-func (nd *Node) SendPingMessage(meta NetworkMetaData) {
+func (nd *Node) SendPingMessage(meta NetworkMetaData, blockHeight int) {
 
 	// TODO support BlockHeight
-	msg := CreatePingMessage(nd.Meta, -1)
+	msg := CreatePingMessage(nd.Meta, blockHeight)
 	var result bytes.Buffer
 	var encoder = gob.NewEncoder(&result)
 	utils.Handle(encoder.Encode(msg))

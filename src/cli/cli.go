@@ -340,7 +340,7 @@ func (cli *Cli) PrintBlockchain() {
 // Network
 
 func (cli *Cli) Ping(ip string, port string) {
-	cli.Node.SendPingMessage(network.NetworkMetaData{Ip: ip, Port: port})
+	cli.Node.SendPingMessage(network.NetworkMetaData{Ip: ip, Port: port}, cli.Blockchain.BlockHeight)
 }
 
 func (cli *Cli) CheckConnection() {
@@ -392,6 +392,7 @@ func (cli *Cli) HandleNetworkData() {
 				cli.pendingTXMap.DeleteTx(txKey)
 			}
 		}
+		cli.NetworkBlockCache.SetLastHash(cli.Blockchain.LastHash)
 	}
 
 	// TODO: remove invalid transactions

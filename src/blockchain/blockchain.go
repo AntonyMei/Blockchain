@@ -25,6 +25,8 @@ type BlockChain struct {
 	ChainDifficulty int
 	// hash of last block
 	LastHash []byte
+	// height of last block
+	BlockHeight int
 }
 
 func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
@@ -35,7 +37,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 	utils.Handle(err)
 
 	// create a new blockchain if nothing exists
-	blockchain := BlockChain{Database: database, Wallets: wallets, ChainDifficulty: config.InitialChainDifficulty}
+	blockchain := BlockChain{Database: database, Wallets: wallets, ChainDifficulty: config.InitialChainDifficulty, BlockHeight: 0}
 	err = database.Update(func(txn *badger.Txn) error {
 		_, err := txn.Get([]byte("lasthash"))
 		if err == badger.ErrKeyNotFound {
@@ -44,6 +46,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 			genesis := blocks.Genesis(config.InitialChainDifficulty)
 			verifyResult := blockchain.ValidateBlock(genesis)
 			blockchain.LastHash = genesis.Hash
+			blockchain.BlockHeight = genesis.Height
 			fmt.Printf("Verify genesis: %v.\n", verifyResult.String())
 			err = txn.Set(genesis.Hash, genesis.Serialize())
 			utils.Handle(err)
@@ -61,6 +64,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 }
 
 func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*transaction.Transaction) *blocks.Block {
+	prevHeight := bc.Iterator().GetVal().Height
 	// add block should be a database transaction
 	err := bc.Database.Update(func(txn *badger.Txn) error {
 		// get last hash from database
@@ -75,7 +79,7 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 
 		// create new block
 		txList = append(txList, transaction.CoinbaseTx(minerAddr))
-		newBlock := blocks.CreateBlock(description, txList, lastHash, bc.ChainDifficulty)
+		newBlock := blocks.CreateBlock(description, txList, lastHash, bc.ChainDifficulty, prevHeight)
 
 		// check block
 		verifyResult := bc.ValidateBlock(newBlock)
@@ -94,6 +98,7 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 	utils.Handle(err)
 	block := bc.Iterator().GetVal()
 	bc.LastHash = block.Hash
+	bc.BlockHeight = block.Height
 	return block
 }
 
@@ -130,6 +135,8 @@ func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) {
 		return nil
 	})
 	utils.Handle(err)
+	bc.LastHash = NetBlock.Hash
+	bc.BlockHeight = NetBlock.Height
 }
 
 func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {

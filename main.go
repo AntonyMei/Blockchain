@@ -103,7 +103,7 @@ func test_network() {
 	
 	if agent == "Bob" || agent == "Charlie" || agent == "David" {
 		alice_meta := network.NetworkMetaData{Ip:"localhost", Port:ports["Alice"]}
-		node.SendPingMessage(alice_meta)
+		node.SendPingMessage(alice_meta, chain.BlockHeight)
 	}
 
 	for true {
