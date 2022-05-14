@@ -228,8 +228,6 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 		txCopy := transaction.Transaction{TxInputList: tx.TxInputList, TxOutputList: tx.TxOutputList}
 		txCopy.SetID()
 		if bytes.Compare(txCopy.TxID, tx.TxID) != 0 {
-			tx.Log2Terminal()
-			txCopy.Log2Terminal()
 			return utils.WrongTxID
 		}
 		// check each input of TX
