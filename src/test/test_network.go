@@ -119,56 +119,69 @@ func Test_Network_Data_Bytes(num_nodes int, node_id int, Txs_Per_Block int, Outs
 		}
 	}()
 
-	tick := time.Tick(30 * time.Second)
+	smalltick := time.Tick(100 * time.Millisecond)
+	tick := time.Tick(10 * time.Second)
 	fmt.Printf("Start\n")
 	mined<-1
-	fmt.Printf("Start\n")
 	myTx := ""
+	done := false
 	for {
 		select {
 		case <-mined:
-			if myTx == "" || c.PendingTxMap.GetTx(myTx) == nil{
-				fmt.Printf("Generate my transaction\n")
-				// create new transaction
-				allKnownNames, _ := c.Wallets.GetAllKnownAddress()
-				utils.Assert(len(allKnownNames) > Outs_Per_Tx, "There are not enough peers.")
-				picked := make(map[string]bool)
-				picked[userName] = true
-				outs := []string{}
-				amounts := []int{}
-				for i:=0; i<Outs_Per_Tx; i++ {
-					for len(outs) <= i {
-						randomIndex := rand.Intn(len(allKnownNames))
-						name := allKnownNames[randomIndex]
-						_, exists := picked[name]
-						if !exists {
-							picked[name] = true
-							outs = append(outs, name)
-							amounts = append(amounts, 1)
+			if !done {
+				if myTx == "" || c.PendingTxMap.GetTx(myTx) == nil{
+					fmt.Printf("Generate my transaction\n")
+					// create new transaction
+					allKnownNames, _ := c.Wallets.GetAllKnownAddress()
+					utils.Assert(len(allKnownNames) > Outs_Per_Tx, "There are not enough peers.")
+					picked := make(map[string]bool)
+					picked[userName] = true
+					outs := []string{}
+					amounts := []int{}
+					for i:=0; i<Outs_Per_Tx; i++ {
+						for len(outs) <= i {
+							randomIndex := rand.Intn(len(allKnownNames))
+							name := allKnownNames[randomIndex]
+							_, exists := picked[name]
+							if !exists {
+								picked[name] = true
+								outs = append(outs, name)
+								amounts = append(amounts, 1)
+							}
 						}
 					}
+					myTx = c.CreateTransaction("tx", userName, outs, amounts)
 				}
-				myTx = c.CreateTransaction("tx", userName, outs, amounts)
-			}
-			
-			fmt.Printf("Generate new transaction list\n")
-			// select a new set of transactions to mine
-			selectedTxs := []string{myTx}
-			picked := make(map[string]bool)
-			picked[myTx] = true
-			allTxKeys, _ := c.PendingTxMap.GetAllTx()
-			for i:=1; i<Txs_Per_Block; i++ {
-				randomIndex := rand.Intn(len(allTxKeys))
-				txName := allTxKeys[randomIndex]
-				_, exists := picked[txName]
-				if !exists {
-					picked[txName] = true
-					selectedTxs = append(selectedTxs, txName)
+				
+				fmt.Printf("Generate new transaction list\n")
+				// select a new set of transactions to mine
+				selectedTxs := []string{myTx}
+				picked := make(map[string]bool)
+				picked[myTx] = true
+				allTxKeys, _ := c.PendingTxMap.GetAllTx()
+				for i:=1; i<Txs_Per_Block; i++ {
+					randomIndex := rand.Intn(len(allTxKeys))
+					txName := allTxKeys[randomIndex]
+					_, exists := picked[txName]
+					if !exists {
+						picked[txName] = true
+						selectedTxs = append(selectedTxs, txName)
+					}
 				}
+				T <- selectedTxs
 			}
-			T <- selectedTxs
+		case <-smalltick:
+			// ping a random node to catchup missed block
+			c.Ping("localhost", strconv.Itoa(rand.Intn(num_nodes) + 5000))
+			if c.Blockchain.BlockHeight > 100 {
+				// stop at 100 block height
+				done = true
+				for {}
+			}
 		case <-tick:
+			// log
 			c.PrintBlockchain()
+			fmt.Printf("network data at block height %d: send %d bytes, receive %d bytes.\n", c.Blockchain.BlockHeight, int(c.Node.Total_send_bytes), int(c.Node.Total_recv_bytes))
 		default:
 			c.HandleBlock()
 		}

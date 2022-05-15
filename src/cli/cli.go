@@ -198,6 +198,9 @@ MainLoop:
 		case <-time.After(time.Duration(10) * time.Millisecond):
 			// handle blocks from network
 			commandLine.HandleBlock()
+
+			// ping a random node to catch up chain
+			commandLine.Node.RandomPing(commandLine.Blockchain.BlockHeight)
 		case <-tick:
 			// broadcast all private users' id
 			accountNames := commandLine.Wallets.GetAllWalletNames()

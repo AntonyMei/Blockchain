@@ -9,6 +9,7 @@ import (
     "net/url"
 	"time"
 	"sync"
+	"sync/atomic"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
 	"github.com/AntonyMei/Blockchain/src/blocks"
@@ -25,6 +26,10 @@ type Node struct {
 	Blocks []*blocks.Block
 	CliHandleTxFromNetwork func(string, *transaction.Transaction)
 	CliHandleBlockFromNetwork func(*blocks.Block)
+
+	//stats
+	Total_send_bytes uint64
+	Total_recv_bytes uint64
 }
 
 func InitializeNode(w *wallet.Wallets, chain *blockchain.BlockChain, meta NetworkMetaData) *Node {
@@ -83,6 +88,7 @@ func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 
 	body, err := ioutil.ReadAll(req.Body)
 	utils.Handle(err)
+	atomic.AddUint64(&nd.Total_recv_bytes, uint64(len(body)))
 
 	var msg PingMessage
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
@@ -112,6 +118,7 @@ func (nd *Node) HandlePeersMessage(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "ACK")
 	body, err := ioutil.ReadAll(req.Body)
 	utils.Handle(err)
+	atomic.AddUint64(&nd.Total_recv_bytes, uint64(len(body)))
 
 	var msg PeersMessage
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
@@ -133,6 +140,7 @@ func (nd *Node) HandleUserMessage(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "ACK")
 	body, err := ioutil.ReadAll(req.Body)
 	utils.Handle(err)
+	atomic.AddUint64(&nd.Total_recv_bytes, uint64(len(body)))
 
 	var msg UserMessage
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
@@ -150,6 +158,7 @@ func (nd *Node) HandleTransactionMessage(w http.ResponseWriter, req *http.Reques
 	fmt.Fprintf(w, "ACK")
 	body, err := ioutil.ReadAll(req.Body)
 	utils.Handle(err)
+	atomic.AddUint64(&nd.Total_recv_bytes, uint64(len(body)))
 
 	var msg TransactionMessage
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
@@ -169,6 +178,7 @@ func (nd *Node) HandleBlockMessage(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "ACK")
 	body, err := ioutil.ReadAll(req.Body)
 	utils.Handle(err)
+	atomic.AddUint64(&nd.Total_recv_bytes, uint64(len(body)))
 
 	var msg BlockMessage
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
@@ -186,6 +196,7 @@ func (nd *Node) SendMessage(channel string, meta NetworkMetaData, buf *bytes.Buf
 	url, err := url.Parse(s)
 	utils.Handle(err)
 
+	atomic.AddUint64(&nd.Total_send_bytes, uint64(len(buf.Bytes())))
 	resp, err := c.Post(url.String(), "", bytes.NewBuffer(buf.Bytes()))
 	if err != nil {
 		return
@@ -213,6 +224,24 @@ func (nd *Node) SendPingMessage(meta NetworkMetaData, blockHeight int) {
 	utils.Handle(encoder.Encode(msg))
 
 	nd.SendMessage("ping", meta, &result)
+}
+
+func (nd *Node) RandomPing(blockHeight int) {
+	peers := nd.ConnectionPool.GetAlivePeers(10)
+
+	msg := CreatePingMessage(nd.Meta, blockHeight)
+	var result bytes.Buffer
+	var encoder = gob.NewEncoder(&result)
+	utils.Handle(encoder.Encode(msg))
+
+	var SentPeer = make(map[NetworkMetaData]bool)
+	for _, peer := range peers {
+		_, exist := SentPeer[peer]
+		if !exist {
+			SentPeer[peer] = true
+			nd.SendMessage("ping", peer, &result)
+		}
+	}
 }
 
 func (nd *Node) SendBlockMessage(meta NetworkMetaData, block *blocks.Block) {
