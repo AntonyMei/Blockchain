@@ -80,6 +80,7 @@ func (b *Block) Log2Terminal() {
 	fmt.Printf("Previous Hash: %x\n", b.PrevHash)
 	fmt.Printf("Nonce: %v\n", b.Nonce)
 	fmt.Printf("Difficulty: %v\n", b.Difficulty)
+	fmt.Printf("Block Height: %d\n", b.Height)
 	pow := CreateProofOfWork(b)
 	fmt.Printf("Hash Validated: %s\n", strconv.FormatBool(pow.ValidateNonce()))
 	for _, tx := range b.TransactionList {

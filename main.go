@@ -1,8 +1,11 @@
 package main
 
 import (
+	"os"
+	"time"
 	"bufio"
 	"fmt"
+	"strconv"
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/cli"
@@ -10,8 +13,7 @@ import (
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
-	"os"
-	"time"
+	"github.com/AntonyMei/Blockchain/src/test"
 )
 
 func main() {
@@ -64,6 +66,12 @@ func runCli() {
 	commandLine := cli.InitializeCli(userName, ip, port)
 
 	commandLine.Loop(reader)
+}
+
+func test_network_bytes() {	
+	num_nodes, _ := strconv.Atoi(os.Args[1])
+	node_id, _ := strconv.Atoi(os.Args[2])
+	test.Test_Network_Data_Bytes(num_nodes, node_id, 10, 1)
 }
 
 func test_network() {
@@ -145,6 +153,7 @@ func test_network_tx() {
 	if agent == "Alice" {
 		fmt.Println("Add First Block")
 		commandLine.MineBlock(agent, "FirstBlock", []string{})
+		commandLine.HandleBlock()
 
 		commandLine.Broadcast(agent)
 
@@ -159,7 +168,7 @@ func test_network_tx() {
 	}
 }
 
-func test() {
+func test_local() {
 	println("Wallet Test")
 	// initialize wallets
 	wallets, err := wallet.InitializeWallets("Alice")
@@ -196,18 +205,18 @@ func test() {
 	// starts a chain / continues from last chain
 	chain := blockchain.InitBlockChain(wallets, "Alice")
 	// alice mines two blocks
-	chain.AddBlock(aliceAddr, "Alice 1", []*transaction.Transaction{})
-	chain.AddBlock(aliceAddr, "Alice 2", []*transaction.Transaction{})
+	chain.AddBlock(chain.MineBlock(aliceAddr, "Alice 1", []*transaction.Transaction{}))
+	chain.AddBlock(chain.MineBlock(aliceAddr, "Alice 2", []*transaction.Transaction{}))
 	// bob comes in and mine another block
-	chain.AddBlock(bobAddr, "Bob 1", []*transaction.Transaction{})
+	chain.AddBlock(chain.MineBlock(bobAddr, "Bob 1", []*transaction.Transaction{}))
 	// Alice pays bob 30 in the next block
 	tx1 := chain.GenerateTransaction(aliceWallet, [][]byte{bobAddr}, []int{30})
-	chain.AddBlock(bobAddr, "Bob records that Alice pays Bob 30.", []*transaction.Transaction{tx1})
+	chain.AddBlock(chain.MineBlock(bobAddr, "Bob records that Alice pays Bob 30.", []*transaction.Transaction{tx1}))
 	// Alice gives Bob 90, David 40, then Bob returns 60, Charlie logs this
 	tx2 := chain.GenerateTransaction(aliceWallet, [][]byte{bobAddr, davidAddr}, []int{90, 40})
 	tx3 := chain.GenerateTransaction(bobWallet, [][]byte{aliceAddr}, []int{60})
-	chain.AddBlock(charlieAddr, "Charlie records that Alice gives Bob 90, David 40 and Bob returns 60.",
-		[]*transaction.Transaction{tx2, tx3})
+	chain.AddBlock(chain.MineBlock(charlieAddr, "Charlie records that Alice gives Bob 90, David 40 and Bob returns 60.",
+		[]*transaction.Transaction{tx2, tx3}))
 	// At this point the balance should look like
 	// Alice:   100
 	// Bob:     260

@@ -20,9 +20,9 @@ type Cli struct {
 	Wallets      *wallet.Wallets
 	Blockchain   *blockchain.BlockChain
 	UserName     string
-	pendingTXMap *blockchain.PendingTXs
-	NetworkBlockCache *blockcache.BlockCache
+	BlockCache *blockcache.BlockCache
 	Node 		 *network.Node
+	PendingTxMap *blockchain.PendingTXs
 }
 
 // Basic
@@ -43,8 +43,8 @@ func InitializeCli(userName string, ip string, port string) *Cli {
 
 	// initialize cli
 	cli := Cli{Wallets: wallets, Blockchain: chain, Node: node}
-	cli.pendingTXMap = blockchain.InitPendingTXs()
-	cli.NetworkBlockCache = blockcache.InitBlockCache(10, chain.LastHash)
+	cli.BlockCache = blockcache.InitBlockCache(10, chain.LastHash)
+	cli.PendingTxMap = blockchain.InitPendingTXs()
 
 	// transaction from network
 	node.SetCliTransactionFunc(cli.HandleTxFromNetwork)
@@ -162,7 +162,7 @@ MainLoop:
 						txNameList = append(txNameList, inputList[idx])
 					}
 				}
-				commandLine.MineBlock(minerName, blockDescription, txNameList)
+				go commandLine.MineBlock(minerName, blockDescription, txNameList)
 			} else if utils.Match(inputList, []string{"ls", "chain"}) {
 				// print the chain
 				// syntax: ls chain
@@ -197,7 +197,7 @@ MainLoop:
 			continue
 		case <-time.After(time.Duration(10) * time.Millisecond):
 			// handle blocks from network
-			commandLine.HandleNetworkData()
+			commandLine.HandleBlock()
 		case <-tick:
 			// broadcast all private users' id
 			accountNames := commandLine.Wallets.GetAllWalletNames()
@@ -286,7 +286,7 @@ func (cli *Cli) _listAllKnownAddresses() {
 	}
 }
 
-func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []string, amountList []int) {
+func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []string, amountList []int) string {
 	// check input shape
 	if len(receiverList) != len(amountList) {
 		fmt.Printf("Error: receiver list and amount list shape mismatch.\n")
@@ -296,14 +296,14 @@ func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []s
 	fromWallet := cli.Wallets.GetWallet(sender)
 	if fromWallet == nil {
 		fmt.Printf("Error: No wallet with name %s.\n", sender)
-		return
+		return ""
 	}
 	var toAddrList [][]byte
 	for _, receiver := range receiverList {
 		receiverAddr := cli.Wallets.GetKnownAddress(receiver)
 		if receiverAddr == nil {
 			fmt.Printf("Error: No known address with name %s.\n", receiver)
-			return
+			return ""
 		}
 		toAddrList = append(toAddrList, receiverAddr.Address)
 	}
@@ -311,15 +311,16 @@ func (cli *Cli) CreateTransaction(txName string, sender string, receiverList []s
 	// create TX and put into pending zone
 	newTX := cli.Blockchain.GenerateTransaction(fromWallet, toAddrList, amountList)
 	txKey := txName + "::" + string(utils.Base58Encode(newTX.TxID[:8]))
-	cli.pendingTXMap.AddTransaction(txKey, newTX)
+	cli.PendingTxMap.AddTransaction(txKey, newTX)
 	fmt.Printf("New transaction: %s.\n", txKey)
 
 	// broadcast transaction
 	cli.Node.BroadcastTransaction(txKey, newTX)
+	return txKey
 }
 
 func (cli *Cli) ListPendingTransactions() {
-	cli.pendingTXMap.ListPendingTransactions()
+	cli.PendingTxMap.ListPendingTransactions()
 }
 
 func (cli *Cli) MineBlock(minerName string, description string, txNameList []string) {
@@ -332,23 +333,17 @@ func (cli *Cli) MineBlock(minerName string, description string, txNameList []str
 	// get tx and remove from pending tx list
 	var blockTXList []*transaction.Transaction
 	for _, txName := range txNameList {
-		tx := cli.pendingTXMap.GetTx(txName)
+		tx := cli.PendingTxMap.GetTx(txName)
 		if tx == nil {
 			fmt.Printf("Error: no transaction with name %s.\n", txName)
 			return
 		}
 		blockTXList = append(blockTXList, tx)
 	}
-	// add a new block
-	newBlock := cli.Blockchain.AddBlock(minerWallet.Address(), description, blockTXList)
-	if newBlock != nil {
-		for _, txName := range txNameList {
-			cli.pendingTXMap.DeleteTx(txName)
-		}
-		cli.Node.BroadcastBlock(newBlock)
-		cli.Node.AddBlock(newBlock)
-		cli.NetworkBlockCache.SetLastHash(cli.Blockchain.LastHash)
-	}
+	// mine a new block
+	newBlock := cli.Blockchain.MineBlock(minerWallet.Address(), description, blockTXList)
+	// put the block into the cache
+	cli.BlockCache.AddBlock(newBlock)
 }
 
 func (cli *Cli) PrintBlockchain() {
@@ -376,9 +371,9 @@ func (cli *Cli) Broadcast(name string) {
 }
 
 func (cli *Cli) HandleTxFromNetwork(txKey string, tx *transaction.Transaction) {
-	cur_tx := cli.pendingTXMap.GetTx(txKey)
+	cur_tx := cli.PendingTxMap.GetTx(txKey)
 	if cur_tx == nil {
-		cli.pendingTXMap.AddTransaction(txKey, tx)
+		cli.PendingTxMap.AddTransaction(txKey, tx)
 		// fmt.Printf("Receive transaction from network: %s.\n", txKey)
 
 		// broadcast again
@@ -388,37 +383,37 @@ func (cli *Cli) HandleTxFromNetwork(txKey string, tx *transaction.Transaction) {
 
 func (cli *Cli) HandleBlockFromNetwork(block *blocks.Block) {
 	// puts the block into a cache
-	cli.NetworkBlockCache.AddBlock(block)
+	cli.BlockCache.AddBlock(block)
 }
 
-func (cli *Cli) HandleNetworkData() {
-	// handle block from network
-	block := cli.NetworkBlockCache.PopBlock()
+func (cli *Cli) HandleBlock() {
+	// handle block from cache
+	block := cli.BlockCache.PopBlock()
 	if block != nil {
-		validBlock := cli.Blockchain.AddBlockFromNetwork(block)
-
-		if !validBlock {
-			return
+		validBlock := cli.Blockchain.AddBlock(block)
+		if validBlock {
+			cli.BlockCache.SetLastHash(cli.Blockchain.LastHash)
+			cli.RemoveMinedTXs(block)
+			cli.Node.AddBlock(block)
+			cli.Node.BroadcastBlock(block)
 		}
-
-		// remove duplicate pending transactions
-		allPendingTxKeys, allPendingTxs := cli.pendingTXMap.GetAllTx()
-		MinedTxs := make(map[string]bool)
-		for _, tx := range block.TransactionList {
-			MinedTxs[hex.EncodeToString(tx.TxID)] = true
-		}
-		for i, tx := range allPendingTxs {
-			txKey := allPendingTxKeys[i]
-			_, exists := MinedTxs[hex.EncodeToString(tx.TxID)]
-			if exists {
-				cli.pendingTXMap.DeleteTx(txKey)
-			}
-		}
-		cli.Node.AddBlock(block)
-		cli.NetworkBlockCache.SetLastHash(cli.Blockchain.LastHash)
 	}
+}
 
-	// TODO: remove invalid transactions
+func (cli *Cli) RemoveMinedTXs(block *blocks.Block) {
+	// remove duplicate pending transactions
+	allPendingTxKeys, allPendingTxs := cli.PendingTxMap.GetAllTx()
+	MinedTxs := make(map[string]bool)
+	for _, tx := range block.TransactionList {
+		MinedTxs[hex.EncodeToString(tx.TxID)] = true
+	}
+	for i, tx := range allPendingTxs {
+		txKey := allPendingTxKeys[i]
+		_, exists := MinedTxs[hex.EncodeToString(tx.TxID)]
+		if exists {
+			cli.PendingTxMap.DeleteTx(txKey)
+		}
+	}
 }
 
 func (cli *Cli) PrintHelp() {

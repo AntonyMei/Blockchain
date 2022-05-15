@@ -57,6 +57,18 @@ func (ws *Wallets) GetKnownAddress(name string) *KnownAddress {
 	return ws.KnownAddressMap[name]
 }
 
+func (ws *Wallets) GetAllKnownAddress() ([]string, []*KnownAddress) {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	allKownNames := []string{}
+	allKnownAddress := []*KnownAddress{}
+	for name, addr := range ws.KnownAddressMap {
+		allKownNames = append(allKownNames, name)
+		allKnownAddress = append(allKnownAddress, addr)
+	}
+	return allKownNames, allKnownAddress
+}
+
 func (ws *Wallets) GetAllWalletNames() []string {
 	var accountNames []string
 	for name := range ws.PersonalWalletMap {

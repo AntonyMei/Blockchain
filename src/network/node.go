@@ -88,7 +88,7 @@ func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 
-	fmt.Printf("Receive PING message from http://%s:%s with block height %d.\n", msg.Meta.Ip, msg.Meta.Port, msg.BlockHeight)
+	// fmt.Printf("Receive PING message from http://%s:%s with block height %d.\n", msg.Meta.Ip, msg.Meta.Port, msg.BlockHeight)
 	
 	nd.SendPeersMessage(msg.Meta)
 	
@@ -155,6 +155,8 @@ func (nd *Node) HandleTransactionMessage(w http.ResponseWriter, req *http.Reques
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 	
+	//fmt.Printf("Get Transaction from Ip=%s Port=%s.\n", msg.Meta.Ip, msg.Meta.Port)
+
 	txKey := msg.TxKey
 	tx := msg.Transaction
 	nd.CliHandleTxFromNetwork(txKey, tx)

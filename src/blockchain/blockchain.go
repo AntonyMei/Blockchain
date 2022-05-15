@@ -45,7 +45,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 			fmt.Println("Initiating a new blockchain...")
 			genesis := blocks.Genesis(config.InitialChainDifficulty)
 			verifyResult := blockchain.ValidateBlock(genesis)
-			blockchain.LastHash = genesis.Hash
+			blockchain.LastHash = genesis.Hash[:]
 			blockchain.BlockHeight = genesis.Height
 			fmt.Printf("Verify genesis: %v.\n", verifyResult.String())
 			err = txn.Set(genesis.Hash, genesis.Serialize())
@@ -67,83 +67,36 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 	return &blockchain
 }
 
-func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*transaction.Transaction) *blocks.Block {
-	prevHeight := bc.Iterator().GetVal().Height
-	// add block should be a database transaction
-	var success bool = false
-	err := bc.Database.Update(func(txn *badger.Txn) error {
-		// get last hash from database
-		var lastHash []byte
-		item, err := txn.Get([]byte("lasthash"))
-		utils.Handle(err)
-		err = item.Value(func(val []byte) error {
-			lastHash = val
-			return nil
-		})
-		utils.Handle(err)
-
-		// create new block
-		txList = append(txList, transaction.CoinbaseTx(minerAddr))
-		newBlock := blocks.CreateBlock(description, txList, lastHash, bc.ChainDifficulty, prevHeight)
-
-		// check block
-		verifyResult := bc.ValidateBlock(newBlock)
-		fmt.Printf("Verify new block from network: %v.\n", verifyResult.String())
-		if verifyResult != utils.Verified {
-			return nil
-		}
-		bc.LastHash = newBlock.Hash
-		bc.BlockHeight = newBlock.Height
-
-		// add into db
-		err = txn.Set(newBlock.Hash, newBlock.Serialize())
-		utils.Handle(err)
-		err = txn.Set([]byte("lasthash"), newBlock.Hash)
-		utils.Handle(err)
-		success = true
-		return nil
-	})
-	utils.Handle(err)
-	if success {
-		block := bc.Iterator().GetVal()
-		return block
-	}
-	return nil
+func (bc *BlockChain) MineBlock(minerAddr []byte, description string, txList []*transaction.Transaction) *blocks.Block {
+	// create new block
+	txList = append(txList, transaction.CoinbaseTx(minerAddr))
+	newBlock := blocks.CreateBlock(description, txList, bc.LastHash, bc.ChainDifficulty, bc.BlockHeight)
+	return newBlock
 }
 
-func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) bool {
+func (bc *BlockChain) AddBlock(block *blocks.Block) bool {
+	// add a block into database, either 
+	// whether this is a new block
+	if bytes.Compare(block.PrevHash, bc.LastHash) != 0 {
+		// this is not not a new block
+		return false
+	}
 	validBlock := false
 	err := bc.Database.Update(func(txn *badger.Txn) error {
-		// get last hash from database
-		var lastHash []byte
-		item, err := txn.Get([]byte("lasthash"))
-		utils.Handle(err)
-		err = item.Value(func(val []byte) error {
-			lastHash = val
-			return nil
-		})
-		utils.Handle(err)
-
-		// whether this is a new block
-		if bytes.Compare(NetBlock.PrevHash, lastHash) != 0 {
-			// this is not not a new block
-			return nil
-		}
-
 		// check block
-		verifyResult := bc.ValidateBlock(NetBlock)
+		verifyResult := bc.ValidateBlock(block)
 		fmt.Printf("Verify block: %v.\n", verifyResult.String())
 		if verifyResult != utils.Verified {
 			return nil
 		}
-		bc.LastHash = NetBlock.Hash
-		bc.BlockHeight = NetBlock.Height
+		bc.LastHash = block.Hash
+		bc.BlockHeight = block.Height
 		validBlock = true
 
 		// add into db
-		err = txn.Set(NetBlock.Hash, NetBlock.Serialize())
+		err := txn.Set(block.Hash, block.Serialize())
 		utils.Handle(err)
-		err = txn.Set([]byte("lasthash"), NetBlock.Hash)
+		err = txn.Set([]byte("lasthash"), block.Hash)
 		utils.Handle(err)
 		return nil
 	})

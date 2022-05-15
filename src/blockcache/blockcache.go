@@ -21,7 +21,10 @@ func InitBlockCache(size int, lastHash []byte) *BlockCache {
 func (c *BlockCache) SetLastHash(lastHash []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.lastHash = lastHash
+	if bytes.Compare(lastHash, c.lastHash) != 0 {
+		c.lastHash = lastHash[:]
+		c.que = []*blocks.Block{}
+	}
 }
 
 func (c *BlockCache) AddBlock(block *blocks.Block) bool {
