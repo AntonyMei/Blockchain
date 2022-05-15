@@ -70,6 +70,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*transaction.Transaction) *blocks.Block {
 	prevHeight := bc.Iterator().GetVal().Height
 	// add block should be a database transaction
+	var success bool = false
 	err := bc.Database.Update(func(txn *badger.Txn) error {
 		// get last hash from database
 		var lastHash []byte
@@ -91,19 +92,23 @@ func (bc *BlockChain) AddBlock(minerAddr []byte, description string, txList []*t
 		if verifyResult != utils.Verified {
 			return nil
 		}
+		bc.LastHash = newBlock.Hash
+		bc.BlockHeight = newBlock.Height
 
 		// add into db
 		err = txn.Set(newBlock.Hash, newBlock.Serialize())
 		utils.Handle(err)
 		err = txn.Set([]byte("lasthash"), newBlock.Hash)
 		utils.Handle(err)
+		success = true
 		return nil
 	})
 	utils.Handle(err)
-	block := bc.Iterator().GetVal()
-	bc.LastHash = block.Hash
-	bc.BlockHeight = block.Height
-	return block
+	if success {
+		block := bc.Iterator().GetVal()
+		return block
+	}
+	return nil
 }
 
 func (bc *BlockChain) AddBlockFromNetwork(NetBlock *blocks.Block) bool {
@@ -406,6 +411,17 @@ func (bc *BlockChain) GetBalance(address []byte, publicKey *ecdsa.PublicKey) int
 		}
 	}
 	return balance
+}
+
+func (bc *BlockChain) GetAllBlocks() []*blocks.Block {
+	hasNext := true
+	var allBlocks []*blocks.Block
+	for iterator := bc.Iterator(); hasNext; {
+		block := iterator.GetVal()
+		hasNext = iterator.Next()
+		allBlocks = append(allBlocks, block)
+	}
+	return allBlocks
 }
 
 func (bc *BlockChain) Log2Terminal() {

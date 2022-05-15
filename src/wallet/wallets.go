@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"bytes"
+	"sync"
 	"crypto/elliptic"
 	"encoding/gob"
 	"github.com/AntonyMei/Blockchain/config"
@@ -14,6 +15,7 @@ type Wallets struct {
 	PersonalWalletMap map[string]*Wallet
 	KnownAddressMap   map[string]*KnownAddress
 	WalletPath        string
+	mu                sync.Mutex
 }
 
 func InitializeWallets(userName string) (*Wallets, error) {
@@ -38,14 +40,20 @@ func (ws *Wallets) AddWallet(name string, wallet *Wallet) {
 }
 
 func (ws *Wallets) AddKnownAddress(name string, knownAddress *KnownAddress) {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
 	ws.KnownAddressMap[name] = knownAddress
 }
 
-func (ws Wallets) GetWallet(name string) *Wallet {
+func (ws *Wallets) GetWallet(name string) *Wallet {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
 	return ws.PersonalWalletMap[name]
 }
 
-func (ws Wallets) GetKnownAddress(name string) *KnownAddress {
+func (ws *Wallets) GetKnownAddress(name string) *KnownAddress {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
 	return ws.KnownAddressMap[name]
 }
 

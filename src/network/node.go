@@ -49,10 +49,19 @@ func PrintHeader(w http.ResponseWriter, req *http.Request) {
     }
 }
 
-func (nd *Node) AddBlock(block *blocks.Block) {
+func (nd *Node) AddBlock(newBlock *blocks.Block) {
+	if newBlock == nil {
+		return
+	}
 	nd.mu.Lock()
 	defer nd.mu.Unlock()
-	nd.Blocks = append(nd.Blocks, block)
+	// if already exists, do not add the block
+	for _, block := range nd.Blocks {
+		if bytes.Compare(block.Hash, newBlock.Hash) == 0 {
+			return
+		}
+	}
+	nd.Blocks = append(nd.Blocks, newBlock)
 }
 
 func (nd *Node) GetBlock(blockHeight int) *blocks.Block {
@@ -108,7 +117,7 @@ func (nd *Node) HandlePeersMessage(w http.ResponseWriter, req *http.Request) {
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 
-	fmt.Printf("Receive PEERS message from http://%s:%s.\n", msg.Meta.Ip, msg.Meta.Port)
+	// fmt.Printf("Receive PEERS message from http://%s:%s.\n", msg.Meta.Ip, msg.Meta.Port)
 
 	for _, peer := range msg.Peers {
 		if nd.ConnectionPool.AddPeer(peer) {
@@ -129,7 +138,7 @@ func (nd *Node) HandleUserMessage(w http.ResponseWriter, req *http.Request) {
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 
-	fmt.Printf("Receive USER message from http://%s:%s. Name=%s\n", msg.Meta.Ip, msg.Meta.Port, msg.UserMeta.Name)
+	// fmt.Printf("Receive USER message from http://%s:%s. Name=%s\n", msg.Meta.Ip, msg.Meta.Port, msg.UserMeta.Name)
 
 	nd.Wallets.AddKnownAddress(msg.UserMeta.Name, &wallet.KnownAddress{PublicKey: wallet.DeserializePublicKey(msg.UserMeta.PublicKey), Address: msg.UserMeta.WalletAddr})
 }
@@ -146,9 +155,6 @@ func (nd *Node) HandleTransactionMessage(w http.ResponseWriter, req *http.Reques
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 	
-	/*TODO: add transaction into block chain
-	tx := msg.Transaction
-	nd.Chain.AddTransaction(tx)*/
 	txKey := msg.TxKey
 	tx := msg.Transaction
 	nd.CliHandleTxFromNetwork(txKey, tx)
@@ -166,7 +172,7 @@ func (nd *Node) HandleBlockMessage(w http.ResponseWriter, req *http.Request) {
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 	
-	fmt.Printf("Get Block from Ip=%s Port=%s.\n", msg.Meta.Ip, msg.Meta.Port)
+	//fmt.Printf("Get Block from Ip=%s Port=%s.\n", msg.Meta.Ip, msg.Meta.Port)
 
 	nd.CliHandleBlockFromNetwork(msg.Block)
 }
@@ -255,6 +261,9 @@ func (nd *Node) BroadcastTransaction(txKey string, tx *transaction.Transaction) 
 }
 
 func (nd *Node) BroadcastBlock(block *blocks.Block) {
+	if block == nil {
+		return
+	}
 	//fmt.Printf("Broadcast block with Hash %x.\n", block.Hash)
 	peers := nd.ConnectionPool.GetAlivePeers(50)
 	
@@ -267,7 +276,7 @@ func (nd *Node) BroadcastBlock(block *blocks.Block) {
 	for _, peer := range peers {
 		_, exist := SentPeer[peer]
 		if !exist {
-			fmt.Printf("Send block to Ip=%s, Port=%s.\n", peer.Ip, peer.Port)
+			//fmt.Printf("Send block to Ip=%s, Port=%s.\n", peer.Ip, peer.Port)
 			SentPeer[peer] = true
 			nd.SendMessage("block", peer, &result)
 		}

@@ -49,6 +49,10 @@ func InitializeCli(userName string, ip string, port string) *Cli {
 	// transaction from network
 	node.SetCliTransactionFunc(cli.HandleTxFromNetwork)
 	node.SetCliBlockFunc(cli.HandleBlockFromNetwork)
+	allBlocks := chain.GetAllBlocks()
+	for _, block := range allBlocks {
+		node.AddBlock(block)
+	}
 
 	// perform some magic op
 	transaction.MagicOp()
@@ -71,6 +75,9 @@ func (commandLine *Cli) Loop(reader *bufio.Reader) {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}()
+
+	tick := time.Tick(100 * time.Millisecond)
+
 MainLoop:
 	for {
 		select {
@@ -191,6 +198,7 @@ MainLoop:
 		case <-time.After(time.Duration(10) * time.Millisecond):
 			// handle blocks from network
 			commandLine.HandleNetworkData()
+		case <-tick:
 			// broadcast all private users' id
 			accountNames := commandLine.Wallets.GetAllWalletNames()
 			for _, name := range accountNames {
@@ -331,14 +339,16 @@ func (cli *Cli) MineBlock(minerName string, description string, txNameList []str
 		}
 		blockTXList = append(blockTXList, tx)
 	}
-	for _, txName := range txNameList {
-		cli.pendingTXMap.DeleteTx(txName)
-	}
 	// add a new block
 	newBlock := cli.Blockchain.AddBlock(minerWallet.Address(), description, blockTXList)
-	cli.Node.BroadcastBlock(newBlock)
-	cli.Node.AddBlock(newBlock)
-	cli.NetworkBlockCache.SetLastHash(cli.Blockchain.LastHash)
+	if newBlock != nil {
+		for _, txName := range txNameList {
+			cli.pendingTXMap.DeleteTx(txName)
+		}
+		cli.Node.BroadcastBlock(newBlock)
+		cli.Node.AddBlock(newBlock)
+		cli.NetworkBlockCache.SetLastHash(cli.Blockchain.LastHash)
+	}
 }
 
 func (cli *Cli) PrintBlockchain() {
