@@ -50,6 +50,25 @@ func (utxoSet *UTXOSet) DeleteUTXO(addr []byte, txo UnspentTXO) {
 	utxoSet.Addr2UTXO[string(addr)] = utxoSet.Addr2UTXO[string(addr)][:length-1]
 }
 
+func (utxoSet *UTXOSet) GenerateSpendingPlan(addr []byte, value int) (int, []UnspentTXO) {
+	// Generate a spending plan from this UTXOSet
+	// if successful: return (total, plan), o.w. return (-1, [])
+	var total = 0
+	var plan []UnspentTXO
+	for _, utxo := range utxoSet.Addr2UTXO[string(addr)] {
+		total += utxo.Value
+		plan = append(plan, utxo)
+		if total >= value {
+			break
+		}
+	}
+	if total < value {
+		return -1, []UnspentTXO{}
+	} else {
+		return total, plan
+	}
+}
+
 func (utxoSet *UTXOSet) SaveFile() {
 	// encode the wallets
 	var content bytes.Buffer
