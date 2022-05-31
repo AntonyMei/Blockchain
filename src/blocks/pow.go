@@ -7,6 +7,7 @@ import (
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"math"
 	"math/big"
+	"runtime"
 	"time"
 )
 
@@ -31,8 +32,7 @@ func FindNonce(pow *ProofOfWorkWrapper, workId int, totalWorker int,
 	for nonce := int64(workId) * chunkSize; nonce < int64(workId+1)*chunkSize; {
 		select {
 		case <-killSigChan:
-			println("killed")
-			workloadChan <- int(nonce)
+			workloadChan <- int(nonce - int64(workId)*chunkSize)
 			return
 		default:
 			powData := bytes.Join([][]byte{pow.Block.PrevHash, pow.Block.Data,
@@ -43,8 +43,7 @@ func FindNonce(pow *ProofOfWorkWrapper, workId int, totalWorker int,
 			intHash.SetBytes(hash[:])
 			if intHash.Cmp(pow.Target) == -1 {
 				resultChan <- int(nonce)
-				workloadChan <- int(nonce)
-				println("found!")
+				workloadChan <- int(nonce - int64(workId)*chunkSize)
 				return
 			} else {
 				nonce++
@@ -56,8 +55,7 @@ func FindNonce(pow *ProofOfWorkWrapper, workId int, totalWorker int,
 func (pow *ProofOfWorkWrapper) GenerateNonceHash() (int, []byte) {
 	// Spawn goroutines to find nonce
 	start := time.Now().UnixMilli()
-	//cpuNum := runtime.NumCPU()
-	cpuNum := 4
+	cpuNum := runtime.NumCPU()
 	routineNum := int(math.Max(1, float64(cpuNum-4)))
 	resultChan := make(chan int)
 	workloadChan := make(chan int)
@@ -72,14 +70,9 @@ func (pow *ProofOfWorkWrapper) GenerateNonceHash() (int, []byte) {
 
 	// calculate total work
 	totalWorkload := 0
-WorkloadLoop:
-	for {
-		select {
-		case workload := <-workloadChan:
-			totalWorkload += workload
-		default:
-			break WorkloadLoop
-		}
+	for i := 0; i < routineNum; i++ {
+		workload := <-workloadChan
+		totalWorkload += workload
 	}
 
 	// return nonce, hash
