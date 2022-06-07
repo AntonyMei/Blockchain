@@ -1,28 +1,29 @@
 package cli
 
 import (
-	"fmt"
-	"time"
 	"bufio"
-	"strings"
-	"strconv"
 	"encoding/hex"
+	"fmt"
+	"github.com/AntonyMei/Blockchain/src/blockcache"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
+	"github.com/AntonyMei/Blockchain/src/blocks"
+	"github.com/AntonyMei/Blockchain/src/network"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
-	"github.com/AntonyMei/Blockchain/src/network"
-	"github.com/AntonyMei/Blockchain/src/blocks"
-	"github.com/AntonyMei/Blockchain/src/blockcache"
+	"strconv"
+	"strings"
+	"time"
 )
 
 type Cli struct {
 	Wallets      *wallet.Wallets
 	Blockchain   *blockchain.BlockChain
 	UserName     string
-	BlockCache *blockcache.BlockCache
-	Node 		 *network.Node
+	BlockCache   *blockcache.BlockCache
+	Node         *network.Node
 	PendingTxMap *blockchain.PendingTXs
+	UTXOSet      *blockchain.UTXOSet
 }
 
 // Basic
@@ -34,6 +35,12 @@ func InitializeCli(userName string, ip string, port string) *Cli {
 		fmt.Printf("Load wallets succeeded.\n")
 	}
 
+	// initialize UTXO set
+	utxoset, err2 := blockchain.InitUTXOSet(userName)
+	if err2 == nil {
+		fmt.Printf("Recovered UTXO set from disk.\n")
+	}
+
 	// initialize blockchain
 	chain := blockchain.InitBlockChain(wallets, userName)
 
@@ -42,7 +49,7 @@ func InitializeCli(userName string, ip string, port string) *Cli {
 	node.Serve()
 
 	// initialize cli
-	cli := Cli{Wallets: wallets, Blockchain: chain, Node: node}
+	cli := Cli{Wallets: wallets, Blockchain: chain, Node: node, UTXOSet: utxoset}
 	cli.BlockCache = blockcache.InitBlockCache(10, chain.LastHash)
 	cli.PendingTxMap = blockchain.InitPendingTXs()
 
@@ -168,13 +175,13 @@ MainLoop:
 				// syntax: ls chain
 				commandLine.PrintBlockchain()
 			} else if utils.Match(inputList, []string{"ping"}) {
-				// ping 
+				// ping
 				if !utils.CheckArgumentCount(inputList, 3) {
 					continue
 				}
 				commandLine.Ping(inputList[1], inputList[2])
 			} else if utils.Match(inputList, []string{"ls", "connection"}) {
-				// list connections 
+				// list connections
 				if !utils.CheckArgumentCount(inputList, 2) {
 					continue
 				}
@@ -215,6 +222,7 @@ MainLoop:
 
 func (cli *Cli) Exit() {
 	cli.Wallets.SaveFile()
+	cli.UTXOSet.SaveFile()
 	cli.Blockchain.Exit()
 }
 

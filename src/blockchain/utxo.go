@@ -22,11 +22,12 @@ type UTXOSet struct {
 	UTXOSetPath string
 }
 
-func InitUTXOSet(userName string) *UTXOSet {
+func InitUTXOSet(userName string) (*UTXOSet, error) {
 	utxoSet := UTXOSet{}
 	utxoSet.Addr2UTXO = make(map[string][]UnspentTXO)
 	utxoSet.UTXOSetPath = config.PersistentStoragePath + userName + config.UTXOSetPath
-	return &utxoSet
+	err := utxoSet.LoadFile()
+	return &utxoSet, err
 }
 
 func (utxoSet *UTXOSet) AddUTXO(addr []byte, txo UnspentTXO) {
