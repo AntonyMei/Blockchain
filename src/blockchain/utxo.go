@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/elliptic"
 	"encoding/gob"
+	"encoding/hex"
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"io/ioutil"
@@ -51,7 +52,21 @@ func (utxoSet *UTXOSet) DeleteUTXO(addr []byte, txo UnspentTXO) {
 	utxoSet.Addr2UTXO[string(addr)] = utxoSet.Addr2UTXO[string(addr)][:length-1]
 }
 
-func (utxoSet *UTXOSet) GenerateSpendingPlan(addr []byte, value int) (int, []UnspentTXO) {
+func (utxoSet *UTXOSet) GenerateSpendingPlan(addr []byte, value int) (int, map[string][]int) {
+	var total, unspentList = utxoSet._GenerateSpendingPlan(addr, value)
+	if total != value {
+		return total, make(map[string][]int)
+	} else {
+		var candidateList = make(map[string][]int)
+		for _, utxo := range unspentList {
+			txID := hex.EncodeToString(utxo.SourceTxID)
+			candidateList[txID] = append(candidateList[txID], utxo.TxOutputIdx)
+		}
+		return total, candidateList
+	}
+}
+
+func (utxoSet *UTXOSet) _GenerateSpendingPlan(addr []byte, value int) (int, []UnspentTXO) {
 	// Generate a spending plan from this UTXOSet
 	// if successful: return (total, plan), o.w. return (-1, [])
 	var total = 0
