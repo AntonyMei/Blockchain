@@ -2,7 +2,7 @@ package config
 
 const (
 	// InitialChainDifficulty is equal to four times the number of zeros at hash value head.
-	InitialChainDifficulty = 26
+	InitialChainDifficulty = 16
 	// MiningReward is the number of coins given to each block
 	MiningReward = 100
 

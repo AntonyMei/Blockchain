@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"github.com/AntonyMei/Blockchain/config"
+	"github.com/AntonyMei/Blockchain/src/blocks"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"io/ioutil"
 	"os"
@@ -33,6 +34,19 @@ func InitUTXOSet(userName string) (*UTXOSet, error) {
 
 func (utxoSet *UTXOSet) AddUTXO(addr []byte, txo UnspentTXO) {
 	utxoSet.Addr2UTXO[string(addr)] = append(utxoSet.Addr2UTXO[string(addr)], txo)
+}
+
+func (utxoSet *UTXOSet) DumpBlock(block *blocks.Block) {
+	// Put every output of the given block into UTXO set
+	for _, tx := range block.TransactionList {
+		for idx, txo := range tx.TxOutputList {
+			utxoSet.AddUTXO(txo.Address, UnspentTXO{
+				SourceTxID:  tx.TxID,
+				TxOutputIdx: idx,
+				Value:       txo.Value,
+			})
+		}
+	}
 }
 
 func (utxoSet *UTXOSet) DeleteUTXO(addr []byte, txo UnspentTXO) {
