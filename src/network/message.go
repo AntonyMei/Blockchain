@@ -66,3 +66,23 @@ func CreateBlockMessage(Meta NetworkMetaData, Block *blocks.Block) BlockMessage 
 	msg := BlockMessage{Meta, Block}
 	return msg
 }
+
+type BlockRetrieveMessage struct {
+	Meta NetworkMetaData
+	BlockHeight int
+}
+
+func CreateBlockRetrieveMessage(Meta NetworkMetaData, BlockHeight int) BlockRetrieveMessage {
+	msg := BlockRetrieveMessage{Meta, BlockHeight}
+	return msg
+}
+
+type BlockSourceMessage struct {
+	Meta NetworkMetaData
+	BlockHeight int
+}
+
+func CreateBlockSourceMessage(Meta NetworkMetaData, BlockHeight int) BlockSourceMessage {
+	msg := BlockSourceMessage{Meta, BlockHeight}
+	return msg
+}

@@ -398,7 +398,7 @@ func (cli *Cli) HandleBlock() {
 			cli.BlockCache.SetLastHash(cli.Blockchain.LastHash)
 			cli.RemoveMinedTXs(block)
 			cli.Node.AddBlock(block)
-			cli.Node.BroadcastBlock(block)
+			cli.Node.BroadcastBlockSource(block)
 		}
 	}
 }

@@ -71,7 +71,7 @@ func runCli() {
 func test_network_bytes() {	
 	num_nodes, _ := strconv.Atoi(os.Args[1])
 	node_id, _ := strconv.Atoi(os.Args[2])
-	test.Test_Network_Data_Bytes(num_nodes, node_id, 10, 1)
+	test.Test_Network_Data_Bytes(num_nodes, node_id, 50, 1)
 }
 
 func test_network() {

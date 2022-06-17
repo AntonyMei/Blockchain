@@ -30,11 +30,17 @@ type Node struct {
 	//stats
 	Total_send_bytes uint64
 	Total_recv_bytes uint64
+
+	// last block time
+	last_retrieve_time time.Time
+	refreshed_time bool
 }
 
 func InitializeNode(w *wallet.Wallets, chain *blockchain.BlockChain, meta NetworkMetaData) *Node {
 	nd := Node{ConnectionPool: InitializeConnectionPool(), Wallets: w, Chain: chain, Meta: meta}
 	nd.ConnectionPool.AddPeer(nd.Meta)
+	nd.last_retrieve_time = time.Now()
+	nd.refreshed_time = true
 	return &nd
 }
 
@@ -67,6 +73,7 @@ func (nd *Node) AddBlock(newBlock *blocks.Block) {
 		}
 	}
 	nd.Blocks = append(nd.Blocks, newBlock)
+	nd.refreshed_time = true // refresh time when new block is added
 }
 
 func (nd *Node) GetBlock(blockHeight int) *blocks.Block {
@@ -104,10 +111,11 @@ func (nd *Node) HandlePingMessage(w http.ResponseWriter, req *http.Request) {
 
 	// synchronize block according to block height
 	if msg.BlockHeight < nd.Chain.BlockHeight {
-		block := nd.GetBlock(msg.BlockHeight + 1)
+		/*block := nd.GetBlock(msg.BlockHeight + 1)
 		if block != nil {
 			nd.SendBlockMessage(msg.Meta, block)
-		}
+		}*/
+		nd.SendBlockSourceMessage(msg.Meta, nd.Chain.BlockHeight)
 	}
 }
 
@@ -171,6 +179,48 @@ func (nd *Node) HandleTransactionMessage(w http.ResponseWriter, req *http.Reques
 	nd.CliHandleTxFromNetwork(txKey, tx)
 }
 
+func (nd *Node) HandleBlockSourceMessage(w http.ResponseWriter, req *http.Request) {
+	PrintHeader(w, req)
+
+	// send acknowledgement back
+	fmt.Fprintf(w, "ACK")
+	body, err := ioutil.ReadAll(req.Body)
+	utils.Handle(err)
+	atomic.AddUint64(&nd.Total_recv_bytes, uint64(len(body)))
+
+	var msg BlockSourceMessage
+	var decoder = gob.NewDecoder(bytes.NewReader(body))
+	utils.Handle(decoder.Decode(&msg))
+
+	nd.mu.Lock()
+	defer nd.mu.Unlock()
+	if (msg.BlockHeight > nd.Chain.BlockHeight && (nd.refreshed_time || time.Since(nd.last_retrieve_time).Milliseconds() > 50)) {
+		// fmt.Println("[Node] BlockSource", msg.Meta.Ip, msg.Meta.Port, msg.BlockHeight, nd.Chain.BlockHeight, nd.refreshed_time, time.Since(nd.last_retrieve_time).Milliseconds())
+		nd.SendBlockRetrieveMessage(msg.Meta, nd.Chain.BlockHeight + 1)
+		nd.last_retrieve_time = time.Now()
+		nd.refreshed_time = false
+	}
+}
+
+func (nd *Node) HandleBlockRetrieveMessage(w http.ResponseWriter, req *http.Request) {
+	PrintHeader(w, req)
+
+	// send acknowledgement back
+	fmt.Fprintf(w, "ACK")
+	body, err := ioutil.ReadAll(req.Body)
+	utils.Handle(err)
+	atomic.AddUint64(&nd.Total_recv_bytes, uint64(len(body)))
+
+	var msg BlockRetrieveMessage
+	var decoder = gob.NewDecoder(bytes.NewReader(body))
+	utils.Handle(decoder.Decode(&msg))
+
+	block := nd.GetBlock(msg.BlockHeight)
+	if block != nil {
+		nd.SendBlockMessage(msg.Meta, block)
+	}
+}
+
 func (nd *Node) HandleBlockMessage(w http.ResponseWriter, req *http.Request) {
 	PrintHeader(w, req)
 
@@ -195,6 +245,10 @@ func (nd *Node) SendMessage(channel string, meta NetworkMetaData, buf *bytes.Buf
 	s := fmt.Sprintf("http://%s:%s/%s", meta.Ip, meta.Port, channel)
 	url, err := url.Parse(s)
 	utils.Handle(err)
+
+	//if channel == "block" {
+	//	fmt.Println("Block size", uint64(len(buf.Bytes())), "bytes")
+	//}
 
 	atomic.AddUint64(&nd.Total_send_bytes, uint64(len(buf.Bytes())))
 	resp, err := c.Post(url.String(), "", bytes.NewBuffer(buf.Bytes()))
@@ -251,6 +305,48 @@ func (nd *Node) SendBlockMessage(meta NetworkMetaData, block *blocks.Block) {
 	utils.Handle(encoder.Encode(msg))
 
 	nd.SendMessage("block", meta, &result)
+	//fmt.Println("Block length", len(block.TransactionList))
+}
+
+func (nd *Node) SendBlockSourceMessage(meta NetworkMetaData, blockHeight int) {
+	msg := CreateBlockSourceMessage(nd.Meta, blockHeight)
+	var result bytes.Buffer
+	var encoder = gob.NewEncoder(&result)
+	utils.Handle(encoder.Encode(msg))
+
+	nd.SendMessage("block_source", meta, &result)
+}
+
+func (nd *Node) SendBlockRetrieveMessage(meta NetworkMetaData, blockHeight int) {
+	msg := CreateBlockRetrieveMessage(nd.Meta, blockHeight)
+	var result bytes.Buffer
+	var encoder = gob.NewEncoder(&result)
+	utils.Handle(encoder.Encode(&msg))
+
+	nd.SendMessage("block_retrieve", meta, &result)
+}
+
+func (nd *Node) BroadcastBlockSource(block *blocks.Block) {
+	if block == nil {
+		return
+	}
+	//fmt.Printf("Broadcast block with Hash %x.\n", block.Hash)
+	peers := nd.ConnectionPool.GetAlivePeers(50)
+	
+	msg := CreateBlockSourceMessage(nd.Meta, block.Height)
+	var result bytes.Buffer
+	var encoder = gob.NewEncoder(&result)
+	utils.Handle(encoder.Encode(msg))
+
+	var SentPeer = make(map[NetworkMetaData]bool)
+	for _, peer := range peers {
+		_, exist := SentPeer[peer]
+		if !exist {
+			//fmt.Printf("Send block to Ip=%s, Port=%s.\n", peer.Ip, peer.Port)
+			SentPeer[peer] = true
+			nd.SendMessage("block_source", peer, &result)
+		}
+	}
 }
 
 func (nd *Node) BroadcastUserMessage(userMeta UserMetaData) {
@@ -319,6 +415,8 @@ func (nd *Node) Serve() error {
 	http.HandleFunc("/peers", nd.HandlePeersMessage)
 	http.HandleFunc("/user", nd.HandleUserMessage)
 	http.HandleFunc("/block", nd.HandleBlockMessage)
+	http.HandleFunc("/block_source", nd.HandleBlockSourceMessage)
+	http.HandleFunc("/block_retrieve", nd.HandleBlockRetrieveMessage)
 	http.HandleFunc("/transaction", nd.HandleTransactionMessage)
 
 	go func() {
