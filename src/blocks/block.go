@@ -23,12 +23,13 @@ type Block struct {
 	Difficulty int
 }
 
-func CreateBlock(_data string, txList []*transaction.Transaction, _prevHash []byte, _difficulty int, prevHeight int) *Block {
+func CreateBlock(_data string, txList []*transaction.Transaction, _prevHash []byte,
+	_difficulty int, prevHeight int, isGenesis bool) *Block {
 	// create block with given data and difficulty
 	newBlock := &Block{PrevHash: _prevHash, Hash: []byte{}, Data: []byte(_data),
 		TransactionList: txList, Nonce: 0, Difficulty: _difficulty, Height: prevHeight + 1}
 	pow := CreateProofOfWork(newBlock)
-	nonce, hash := pow.GenerateNonceHash()
+	nonce, hash := pow.GenerateNonceHash(isGenesis)
 	newBlock.Nonce = nonce
 	newBlock.Hash = hash[:]
 	return newBlock
@@ -42,7 +43,8 @@ func Genesis(_difficulty int) *Block {
 	tx := transaction.Transaction{TxID: token, TxInputList: []transaction.TxInput{input},
 		TxOutputList: []transaction.TxOutput{output}}
 	tx.SetID()
-	return CreateBlock(config.GenesisData, []*transaction.Transaction{&tx}, []byte{}, _difficulty, -1)
+	return CreateBlock(config.GenesisData, []*transaction.Transaction{&tx}, []byte{}, _difficulty,
+		-1, true)
 }
 
 func (b *Block) Serialize() []byte {

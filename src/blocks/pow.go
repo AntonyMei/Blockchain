@@ -52,11 +52,14 @@ func FindNonce(pow *ProofOfWorkWrapper, workId int, totalWorker int,
 	}
 }
 
-func (pow *ProofOfWorkWrapper) GenerateNonceHash() (int, []byte) {
+func (pow *ProofOfWorkWrapper) GenerateNonceHash(singleThreadMode bool) (int, []byte) {
 	// Spawn goroutines to find nonce
 	start := time.Now().UnixMilli()
 	cpuNum := runtime.NumCPU()
 	routineNum := int(math.Max(1, float64(cpuNum-4)))
+	if singleThreadMode {
+		routineNum = 1
+	}
 	resultChan := make(chan int)
 	workloadChan := make(chan int)
 	killSigChan := make(chan struct{})

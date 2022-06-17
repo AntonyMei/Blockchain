@@ -70,7 +70,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 func (bc *BlockChain) MineBlock(minerAddr []byte, description string, txList []*transaction.Transaction) *blocks.Block {
 	// create new block
 	txList = append(txList, transaction.CoinbaseTx(minerAddr))
-	newBlock := blocks.CreateBlock(description, txList, bc.LastHash, bc.ChainDifficulty, bc.BlockHeight)
+	newBlock := blocks.CreateBlock(description, txList, bc.LastHash, bc.ChainDifficulty, bc.BlockHeight, false)
 	return newBlock
 }
 
