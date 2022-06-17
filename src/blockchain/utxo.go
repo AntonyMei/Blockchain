@@ -10,6 +10,7 @@ import (
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"io/ioutil"
 	"os"
+	"strconv"
 )
 
 type UnspentTXO struct {
@@ -21,24 +22,61 @@ type UnspentTXO struct {
 type UTXOSet struct {
 	// UTXO Set: address -> (SourceTxID, TxOutputIdx, Value)
 	Addr2UTXO   map[string][]UnspentTXO
+	UTXO2Addr   map[string]string
 	UTXOSetPath string
 }
 
 func InitUTXOSet(userName string) (*UTXOSet, error) {
 	utxoSet := UTXOSet{}
 	utxoSet.Addr2UTXO = make(map[string][]UnspentTXO)
+	utxoSet.UTXO2Addr = make(map[string]string)
 	utxoSet.UTXOSetPath = config.PersistentStoragePath + userName + config.UTXOSetPath
 	err := utxoSet.LoadFile()
 	return &utxoSet, err
 }
 
 func (utxoSet *UTXOSet) AddUTXO(addr []byte, txo UnspentTXO) {
+	// save utxo into addr -> utxo map
 	utxoSet.Addr2UTXO[string(addr)] = append(utxoSet.Addr2UTXO[string(addr)], txo)
+	// save utxo into (TxID | OutputIdx) -> addr map
+	UTXOKey := string(txo.SourceTxID) + strconv.Itoa(txo.TxOutputIdx)
+	utxoSet.UTXO2Addr[UTXOKey] = string(addr)
+}
+
+func (utxoSet *UTXOSet) DeleteUTXO(addr []byte, txo UnspentTXO) {
+	// find the UTXO in addr -> utxo map
+	var targetIdx = -1
+	for idx, utxo := range utxoSet.Addr2UTXO[string(addr)] {
+		if bytes.Compare(utxo.SourceTxID, txo.SourceTxID) == 0 && utxo.TxOutputIdx == txo.TxOutputIdx {
+			targetIdx = idx
+			break
+		}
+	}
+
+	// delete that UTXO from addr -> utxo map
+	var length = len(utxoSet.Addr2UTXO[string(addr)])
+	utxoSet.Addr2UTXO[string(addr)][targetIdx] = utxoSet.Addr2UTXO[string(addr)][length-1]
+	utxoSet.Addr2UTXO[string(addr)] = utxoSet.Addr2UTXO[string(addr)][:length-1]
+
+	// delete that UTXO from (TxID | OutputIdx) -> addr map
+	UTXOKey := string(txo.SourceTxID) + strconv.Itoa(txo.TxOutputIdx)
+	delete(utxoSet.UTXO2Addr, UTXOKey)
 }
 
 func (utxoSet *UTXOSet) DumpBlock(block *blocks.Block) {
-	// Put every output of the given block into UTXO set
+	// Put every output of the given block into UTXO set and remove its inputs
 	for _, tx := range block.TransactionList {
+		// remove input
+		for _, input := range tx.TxInputList {
+			UTXOKey := string(input.SourceTxID) + strconv.Itoa(input.TxOutputIdx)
+			addr := utxoSet.UTXO2Addr[UTXOKey]
+			utxoSet.DeleteUTXO([]byte(addr), UnspentTXO{
+				SourceTxID:  input.SourceTxID,
+				TxOutputIdx: input.TxOutputIdx,
+				Value:       -1,
+			})
+		}
+		// dump output
 		for idx, txo := range tx.TxOutputList {
 			utxoSet.AddUTXO(txo.Address, UnspentTXO{
 				SourceTxID:  tx.TxID,
@@ -47,23 +85,6 @@ func (utxoSet *UTXOSet) DumpBlock(block *blocks.Block) {
 			})
 		}
 	}
-}
-
-func (utxoSet *UTXOSet) DeleteUTXO(addr []byte, txo UnspentTXO) {
-	// Find the UTXO
-	var targetIdx = -1
-	for idx, utxo := range utxoSet.Addr2UTXO[string(addr)] {
-		if bytes.Compare(utxo.SourceTxID, txo.SourceTxID) == 0 && utxo.TxOutputIdx == txo.TxOutputIdx {
-			utils.Assert(utxo.Value == txo.Value, "TXO mismatch")
-			targetIdx = idx
-			break
-		}
-	}
-
-	// Delete that UTXO
-	var length = len(utxoSet.Addr2UTXO[string(addr)])
-	utxoSet.Addr2UTXO[string(addr)][targetIdx] = utxoSet.Addr2UTXO[string(addr)][length-1]
-	utxoSet.Addr2UTXO[string(addr)] = utxoSet.Addr2UTXO[string(addr)][:length-1]
 }
 
 func (utxoSet *UTXOSet) GenerateSpendingPlan(addr []byte, value int) (int, map[string][]int) {
@@ -128,5 +149,6 @@ func (utxoSet *UTXOSet) LoadFile() error {
 	err = decoder.Decode(&tmpUTXOSet)
 	utils.Handle(err)
 	utxoSet.Addr2UTXO = tmpUTXOSet.Addr2UTXO
+	utxoSet.UTXO2Addr = tmpUTXOSet.UTXO2Addr
 	return nil
 }
