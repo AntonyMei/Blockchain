@@ -67,14 +67,16 @@ func (utxoSet *UTXOSet) DumpBlock(block *blocks.Block) {
 	// Put every output of the given block into UTXO set and remove its inputs
 	for _, tx := range block.TransactionList {
 		// remove input
-		for _, input := range tx.TxInputList {
-			UTXOKey := string(input.SourceTxID) + strconv.Itoa(input.TxOutputIdx)
-			addr := utxoSet.UTXO2Addr[UTXOKey]
-			utxoSet.DeleteUTXO([]byte(addr), UnspentTXO{
-				SourceTxID:  input.SourceTxID,
-				TxOutputIdx: input.TxOutputIdx,
-				Value:       -1,
-			})
+		if !tx.IsCoinbase() {
+			for _, input := range tx.TxInputList {
+				UTXOKey := string(input.SourceTxID) + strconv.Itoa(input.TxOutputIdx)
+				addr := utxoSet.UTXO2Addr[UTXOKey]
+				utxoSet.DeleteUTXO([]byte(addr), UnspentTXO{
+					SourceTxID:  input.SourceTxID,
+					TxOutputIdx: input.TxOutputIdx,
+					Value:       -1,
+				})
+			}
 		}
 		// dump output
 		for idx, txo := range tx.TxOutputList {
