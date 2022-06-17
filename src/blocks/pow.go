@@ -3,12 +3,10 @@ package blocks
 import (
 	"bytes"
 	"crypto/sha256"
-	"fmt"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"math"
 	"math/big"
 	"runtime"
-	"time"
 )
 
 type ProofOfWorkWrapper struct {
@@ -54,7 +52,7 @@ func FindNonce(pow *ProofOfWorkWrapper, workId int, totalWorker int,
 
 func (pow *ProofOfWorkWrapper) GenerateNonceHash() (int, []byte) {
 	// Spawn goroutines to find nonce
-	start := time.Now().UnixMilli()
+	//start := time.Now().UnixMilli()
 	cpuNum := runtime.NumCPU()
 	routineNum := int(math.Max(1, float64(cpuNum-4)))
 	resultChan := make(chan int)
@@ -66,7 +64,7 @@ func (pow *ProofOfWorkWrapper) GenerateNonceHash() (int, []byte) {
 	}
 	nonce := <-resultChan
 	close(killSigChan) // This will kill all go routines
-	end := time.Now().UnixMilli()
+	//end := time.Now().UnixMilli()
 
 	// calculate total work
 	totalWorkload := 0
@@ -86,8 +84,8 @@ func (pow *ProofOfWorkWrapper) GenerateNonceHash() (int, []byte) {
 	intHash.SetBytes(hash[:])
 	if intHash.Cmp(pow.Target) == -1 {
 		// a million hash per second
-		hashRate := (float64(totalWorkload) / math.Max(float64(end-start), 1)) / 1000
-		fmt.Printf("Hash rate: %fMH/s.\n", hashRate)
+		//hashRate := (float64(totalWorkload) / math.Max(float64(end-start), 1)) / 1000
+		//fmt.Printf("Hash rate: %fMH/s.\n", hashRate)
 		return nonce, hash[:]
 	} else {
 		panic("Wrong nonce returned by worker!")

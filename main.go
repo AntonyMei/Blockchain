@@ -23,13 +23,12 @@ func main() {
 func runCli() {
 	// login to local system
 	fmt.Println("Blockchain interactive mode, type 'help' for more information.")
-	var reader = bufio.NewReader(os.Stdin)
 	var userName string
 	var ip string
 	var port string
 	for {
 		fmt.Print(">>> Log in as: ")
-		inputList := utils.ReadCommand(reader)
+		inputList := []string{"alice"}
 		if len(inputList) == 1 {
 			userName = inputList[0]
 			pathExists, err := utils.PathExists(config.PersistentStoragePath + userName)
@@ -49,7 +48,7 @@ func runCli() {
 
 	for {
 		fmt.Print(">>> Enter Port: ")
-		inputList := utils.ReadCommand(reader)
+		inputList := []string{strconv.Itoa(5003)}
 		if len(inputList) == 1 {
 			ip = "localhost" // currently only consider localhost
 			port = inputList[0]
@@ -65,7 +64,29 @@ func runCli() {
 	fmt.Printf("Blockchain path: %v\n", blockchainPath)
 	commandLine := cli.InitializeCli(userName, ip, port)
 
-	commandLine.Loop(reader)
+	commandLine.CreateWallet("alice")
+
+	// Test on check time
+	//for i := 0; i <= 20; i++ {
+	//	start := time.Now().UnixMicro()
+	//	for j := 0; j < 100; j++ {
+	//		commandLine.MineBlock("alice", strconv.Itoa(i), []string{})
+	//		time.Sleep(10 * time.Millisecond)
+	//	}
+	//	end := time.Now().UnixMicro()
+	//	fmt.Printf("Avg between %v and %v: %vus.\n", i*100, i*100+100, (end-start-1000*1000)/100)
+	//}
+
+	// Test on different difficulty
+	//for i := 12; i <= 24; i++ {
+	//	commandLine.Blockchain.ChainDifficulty = i
+	//	start := time.Now().UnixMilli()
+	//	for j := 0; j < 10; j++ {
+	//		commandLine.MineBlock("alice", strconv.Itoa(i), []string{})
+	//	}
+	//	end := time.Now().UnixMilli()
+	//	fmt.Printf("Difficulty %v: %vms.\n", i, (end-start)/10)
+	//}
 }
 
 func test_network_bytes() {
