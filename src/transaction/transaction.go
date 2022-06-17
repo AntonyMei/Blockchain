@@ -92,6 +92,7 @@ func (tx *Transaction) SetID() {
 		b[i] = rune('a')
 	}
 	tx.Str = string(b)*/
+	tx.Log2Terminal()
 }
 
 func (tx *Transaction) IsCoinbase() bool {

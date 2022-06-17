@@ -192,10 +192,12 @@ func (nd *Node) HandleBlockSourceMessage(w http.ResponseWriter, req *http.Reques
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 
-	nd.mu.Lock()
-	defer nd.mu.Unlock()
-	if (msg.BlockHeight > nd.Chain.BlockHeight && (nd.refreshed_time || time.Since(nd.last_retrieve_time).Milliseconds() > 50)) {
-		// fmt.Println("[Node] BlockSource", msg.Meta.Ip, msg.Meta.Port, msg.BlockHeight, nd.Chain.BlockHeight, nd.refreshed_time, time.Since(nd.last_retrieve_time).Milliseconds())
+	//fmt.Println("Handle block source", msg.BlockHeight, msg.Meta.Port, nd.Chain.BlockHeight)
+
+	/*nd.mu.Lock()
+	defer nd.mu.Unlock()*/
+	if (msg.BlockHeight > nd.Chain.BlockHeight && (nd.refreshed_time || time.Since(nd.last_retrieve_time).Milliseconds() > 1000)) {
+		//fmt.Println("[Node] BlockSource", msg.Meta.Ip, msg.Meta.Port, msg.BlockHeight, nd.Chain.BlockHeight, nd.refreshed_time, time.Since(nd.last_retrieve_time).Milliseconds())
 		nd.SendBlockRetrieveMessage(msg.Meta, nd.Chain.BlockHeight + 1)
 		nd.last_retrieve_time = time.Now()
 		nd.refreshed_time = false
@@ -214,6 +216,8 @@ func (nd *Node) HandleBlockRetrieveMessage(w http.ResponseWriter, req *http.Requ
 	var msg BlockRetrieveMessage
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
+
+	//fmt.Println("Handle block retrieve")
 
 	block := nd.GetBlock(msg.BlockHeight)
 	if block != nil {
@@ -234,9 +238,12 @@ func (nd *Node) HandleBlockMessage(w http.ResponseWriter, req *http.Request) {
 	var decoder = gob.NewDecoder(bytes.NewReader(body))
 	utils.Handle(decoder.Decode(&msg))
 	
+	//fmt.Println("Handle block")
+
 	//fmt.Printf("Get Block from Ip=%s Port=%s.\n", msg.Meta.Ip, msg.Meta.Port)
 
 	nd.CliHandleBlockFromNetwork(msg.Block)
+	//fmt.Println("Handle block finished")
 }
 
 func (nd *Node) SendMessage(channel string, meta NetworkMetaData, buf *bytes.Buffer) {
@@ -304,6 +311,8 @@ func (nd *Node) SendBlockMessage(meta NetworkMetaData, block *blocks.Block) {
 	var encoder = gob.NewEncoder(&result)
 	utils.Handle(encoder.Encode(msg))
 
+	//fmt.Println("Send block")
+
 	nd.SendMessage("block", meta, &result)
 	//fmt.Println("Block length", len(block.TransactionList))
 }
@@ -314,6 +323,8 @@ func (nd *Node) SendBlockSourceMessage(meta NetworkMetaData, blockHeight int) {
 	var encoder = gob.NewEncoder(&result)
 	utils.Handle(encoder.Encode(msg))
 
+	// fmt.Println("Send block source")
+
 	nd.SendMessage("block_source", meta, &result)
 }
 
@@ -322,6 +333,8 @@ func (nd *Node) SendBlockRetrieveMessage(meta NetworkMetaData, blockHeight int) 
 	var result bytes.Buffer
 	var encoder = gob.NewEncoder(&result)
 	utils.Handle(encoder.Encode(&msg))
+
+	//fmt.Println("Send block retrieve")
 
 	nd.SendMessage("block_retrieve", meta, &result)
 }

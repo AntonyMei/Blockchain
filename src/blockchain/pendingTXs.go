@@ -27,8 +27,9 @@ func (p *PendingTXs) ListPendingTransactions() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	idx := 0
-	for txKey := range p.pendingTXMap {
+	for txKey, tx := range p.pendingTXMap {
 		fmt.Printf("Transaction %v: %s\n", idx, txKey)
+		tx.Log2Terminal()
 		idx += 1
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"sync"
 	"github.com/AntonyMei/Blockchain/src/blocks"
 	"bytes"
+	"fmt"
 )
 
 type BlockCache struct {
@@ -15,6 +16,7 @@ type BlockCache struct {
 
 func InitBlockCache(size int, lastHash []byte) *BlockCache {
 	c := BlockCache{size: size, lastHash: lastHash}
+	// fmt.Printf("init lasthash %x.\n", c.lastHash)
 	return &c
 }
 
@@ -25,6 +27,7 @@ func (c *BlockCache) SetLastHash(lastHash []byte) {
 		c.lastHash = lastHash[:]
 		c.que = []*blocks.Block{}
 	}
+	// fmt.Println("Set lasthash", c.lastHash)
 }
 
 func (c *BlockCache) AddBlock(block *blocks.Block) bool {
@@ -32,18 +35,21 @@ func (c *BlockCache) AddBlock(block *blocks.Block) bool {
 	defer c.mu.Unlock()
 	// only add when the hash is consistent
 	if bytes.Compare(block.PrevHash, c.lastHash) != 0 {
+		fmt.Printf("Not compatible lasthash %x %x.\n", block.PrevHash, c.lastHash)
 		return false
 	}
 	
 	// proof of work
 	pow := blocks.CreateProofOfWork(block)
 	if !pow.ValidateNonce() {
+		fmt.Println("validate pow failed")
 		return false
 	}
 
 	// check whether the block exists
 	for _, cachedBlock := range c.que {
 		if bytes.Compare(cachedBlock.Hash, block.Hash) != 0 {
+			fmt.Println("block with same hash exists")
 			return false
 		}
 	}
@@ -52,6 +58,8 @@ func (c *BlockCache) AddBlock(block *blocks.Block) bool {
 		c.que = c.que[1:]
 	}
 	c.que = append(c.que, block)
+
+	// fmt.Println("Added Block")
 
 	return true
 }
