@@ -86,7 +86,7 @@ func (pow *ProofOfWorkWrapper) GenerateNonceHash() (int, []byte) {
 	intHash.SetBytes(hash[:])
 	if intHash.Cmp(pow.Target) == -1 {
 		// a million hash per second
-		hashRate := (float64(totalWorkload) / float64(end-start)) / 1000
+		hashRate := (float64(totalWorkload) / math.Max(float64(end-start), 1)) / 1000
 		fmt.Printf("Hash rate: %fMH/s.\n", hashRate)
 		return nonce, hash[:]
 	} else {
