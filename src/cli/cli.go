@@ -1,28 +1,29 @@
 package cli
 
 import (
-	"fmt"
-	"time"
 	"bufio"
-	"strings"
-	"strconv"
 	"encoding/hex"
+	"fmt"
+	"github.com/AntonyMei/Blockchain/src/blockcache"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
+	"github.com/AntonyMei/Blockchain/src/blocks"
+	"github.com/AntonyMei/Blockchain/src/network"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
-	"github.com/AntonyMei/Blockchain/src/network"
-	"github.com/AntonyMei/Blockchain/src/blocks"
-	"github.com/AntonyMei/Blockchain/src/blockcache"
+	"strconv"
+	"strings"
+	"time"
 )
 
 type Cli struct {
 	Wallets      *wallet.Wallets
 	Blockchain   *blockchain.BlockChain
 	UserName     string
-	BlockCache *blockcache.BlockCache
-	Node 		 *network.Node
+	BlockCache   *blockcache.BlockCache
+	Node         *network.Node
 	PendingTxMap *blockchain.PendingTXs
+	UTXOSet      *blockchain.UTXOSet
 }
 
 // Basic
@@ -34,6 +35,12 @@ func InitializeCli(userName string, ip string, port string) *Cli {
 		fmt.Printf("Load wallets succeeded.\n")
 	}
 
+	// initialize UTXO set
+	utxoset, err2 := blockchain.InitUTXOSet(userName)
+	if err2 == nil {
+		fmt.Printf("Recovered UTXO set from disk.\n")
+	}
+
 	// initialize blockchain
 	chain := blockchain.InitBlockChain(wallets, userName)
 
@@ -42,7 +49,7 @@ func InitializeCli(userName string, ip string, port string) *Cli {
 	node.Serve()
 
 	// initialize cli
-	cli := Cli{Wallets: wallets, Blockchain: chain, Node: node}
+	cli := Cli{Wallets: wallets, Blockchain: chain, Node: node, UTXOSet: utxoset}
 	cli.BlockCache = blockcache.InitBlockCache(10, chain.LastHash)
 	cli.PendingTxMap = blockchain.InitPendingTXs()
 
@@ -59,7 +66,7 @@ func InitializeCli(userName string, ip string, port string) *Cli {
 	return &cli
 }
 
-func (commandLine *Cli) Loop(reader *bufio.Reader) {
+func (cli *Cli) Loop(reader *bufio.Reader) {
 	s := make(chan string)
 	e := make(chan error)
 
@@ -90,7 +97,7 @@ MainLoop:
 			if utils.Match(inputList, []string{"exit"}) {
 				// exit
 				// syntax: exit
-				commandLine.Exit()
+				cli.Exit()
 				return
 			} else if utils.Match(inputList, []string{"mk", "wallet"}) {
 				// create wallet
@@ -98,21 +105,21 @@ MainLoop:
 				if !utils.CheckArgumentCount(inputList, 3) {
 					continue
 				}
-				commandLine.CreateWallet(inputList[2])
+				cli.CreateWallet(inputList[2])
 			} else if utils.Match(inputList, []string{"ls", "wallet"}) {
 				// list wallet
 				// syntax: ls wallet [name/all]
 				if !utils.CheckArgumentCount(inputList, 3) {
 					continue
 				}
-				commandLine.ListWallet(inputList[2])
+				cli.ListWallet(inputList[2])
 			} else if utils.Match(inputList, []string{"ls", "peer"}) {
 				// list peer
 				// syntax: ls peer [name/all]
 				if !utils.CheckArgumentCount(inputList, 3) {
 					continue
 				}
-				commandLine.ListKnownAddress(inputList[2])
+				cli.ListKnownAddress(inputList[2])
 			} else if utils.Match(inputList, []string{"mk", "tx"}) {
 				// create new tx
 				// syntax: mk tx -n [tx name] -s [sender name] -r [receiver name 1]:[amount 1] ...
@@ -138,11 +145,11 @@ MainLoop:
 					}
 					amountList = append(amountList, amount)
 				}
-				commandLine.CreateTransaction(txName, senderName, receiverNameList, amountList)
+				cli.CreateTransaction(txName, senderName, receiverNameList, amountList)
 			} else if utils.Match(inputList, []string{"ls", "tx"}) {
 				// list all TXes
 				// syntax: ls tx
-				commandLine.ListPendingTransactions()
+				cli.ListPendingTransactions()
 			} else if utils.Match(inputList, []string{"mine"}) {
 				// mine a new block
 				// syntax: mine -n [miner name] -d [block description] -tx [tx name 1] ...
@@ -162,33 +169,33 @@ MainLoop:
 						txNameList = append(txNameList, inputList[idx])
 					}
 				}
-				go commandLine.MineBlock(minerName, blockDescription, txNameList)
+				go cli.MineBlock(minerName, blockDescription, txNameList)
 			} else if utils.Match(inputList, []string{"ls", "chain"}) {
 				// print the chain
 				// syntax: ls chain
-				commandLine.PrintBlockchain()
+				cli.PrintBlockchain()
 			} else if utils.Match(inputList, []string{"ping"}) {
-				// ping 
+				// ping
 				if !utils.CheckArgumentCount(inputList, 3) {
 					continue
 				}
-				commandLine.Ping(inputList[1], inputList[2])
+				cli.Ping(inputList[1], inputList[2])
 			} else if utils.Match(inputList, []string{"ls", "connection"}) {
-				// list connections 
+				// list connections
 				if !utils.CheckArgumentCount(inputList, 2) {
 					continue
 				}
-				commandLine.CheckConnection()
+				cli.CheckConnection()
 			} else if utils.Match(inputList, []string{"broadcast"}) {
 				// broadcast user data
 				if !utils.CheckArgumentCount(inputList, 2) {
 					continue
 				}
-				commandLine.Broadcast(inputList[1])
+				cli.Broadcast(inputList[1])
 			} else if utils.Match(inputList, []string{"help"}) {
 				// print help
 				// syntax: help
-				commandLine.PrintHelp()
+				cli.PrintHelp()
 			} else {
 				fmt.Printf("Unknown command.\n")
 			}
@@ -197,17 +204,17 @@ MainLoop:
 			continue
 		case <-time.After(time.Duration(10) * time.Millisecond):
 			// handle blocks from network
-			commandLine.HandleBlock()
+			cli.HandleBlock()
 
 			// ping a random node to catch up chain
-			commandLine.Node.RandomPing(commandLine.Blockchain.BlockHeight)
+			cli.Node.RandomPing(cli.Blockchain.BlockHeight)
 		case <-tick:
 			// broadcast all private users' id
-			accountNames := commandLine.Wallets.GetAllWalletNames()
+			accountNames := cli.Wallets.GetAllWalletNames()
 			for _, name := range accountNames {
-				wallet := commandLine.Wallets.GetWallet(name)
+				wallet := cli.Wallets.GetWallet(name)
 				user_meta := network.UserMetaData{Name: name, PublicKey: wallet.PublicKey, WalletAddr: wallet.Address()}
-				commandLine.Node.BroadcastUserMessage(user_meta)
+				cli.Node.BroadcastUserMessage(user_meta)
 			}
 		}
 	}
@@ -215,6 +222,7 @@ MainLoop:
 
 func (cli *Cli) Exit() {
 	cli.Wallets.SaveFile()
+	cli.UTXOSet.SaveFile()
 	cli.Blockchain.Exit()
 }
 
@@ -393,8 +401,9 @@ func (cli *Cli) HandleBlock() {
 	// handle block from cache
 	block := cli.BlockCache.PopBlock()
 	if block != nil {
-		validBlock := cli.Blockchain.AddBlock(block)
+		validBlock := cli.Blockchain.AddBlock(block, cli.UTXOSet)
 		if validBlock {
+			cli.UTXOSet.DumpBlock(block)
 			cli.BlockCache.SetLastHash(cli.Blockchain.LastHash)
 			cli.RemoveMinedTXs(block)
 			cli.Node.AddBlock(block)

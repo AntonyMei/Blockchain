@@ -10,6 +10,7 @@ const (
 	PersistentStoragePath = "./tmp/"
 	WalletFileName        = "/wallets.data"
 	BlockchainPath        = "/blocks"
+	UTXOSetPath           = "/utxo.data"
 
 	// GenesisData is contained in Data field of genesis block
 	GenesisData = "Genesis"

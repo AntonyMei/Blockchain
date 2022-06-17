@@ -44,7 +44,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 			// no chain in database, create a new one
 			fmt.Println("Initiating a new blockchain...")
 			genesis := blocks.Genesis(config.InitialChainDifficulty)
-			verifyResult := blockchain.ValidateBlock(genesis)
+			verifyResult := blockchain.ValidateBlock(genesis, nil)
 			blockchain.LastHash = genesis.Hash[:]
 			blockchain.BlockHeight = genesis.Height
 			fmt.Printf("Verify genesis: %v.\n", verifyResult.String())
@@ -74,8 +74,8 @@ func (bc *BlockChain) MineBlock(minerAddr []byte, description string, txList []*
 	return newBlock
 }
 
-func (bc *BlockChain) AddBlock(block *blocks.Block) bool {
-	// add a block into database, either 
+func (bc *BlockChain) AddBlock(block *blocks.Block, utxoSet *UTXOSet) bool {
+	// add a block into database, either
 	// whether this is a new block
 	if bytes.Compare(block.PrevHash, bc.LastHash) != 0 {
 		// this is not not a new block
@@ -84,7 +84,7 @@ func (bc *BlockChain) AddBlock(block *blocks.Block) bool {
 	validBlock := false
 	err := bc.Database.Update(func(txn *badger.Txn) error {
 		// check block
-		verifyResult := bc.ValidateBlock(block)
+		verifyResult := bc.ValidateBlock(block, utxoSet)
 		fmt.Printf("Verify block: %v.\n", verifyResult.String())
 		if verifyResult != utils.Verified {
 			return nil
@@ -104,7 +104,7 @@ func (bc *BlockChain) AddBlock(block *blocks.Block) bool {
 	return validBlock
 }
 
-func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
+func (bc *BlockChain) ValidateBlock(block *blocks.Block, utxoSet *UTXOSet) utils.BlockStatus {
 	wallets := bc.Wallets
 	// check if this block is genesis
 	if bytes.Compare(block.PrevHash, []byte{}) == 0 {
@@ -157,17 +157,13 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 		return utils.HashMismatch
 	}
 	// get all UTXes before further checking on transactions
-	var allUTXOMap = make(map[string]transaction.Transaction)
+	var allUTXOMap = make(map[string]UnspentTXO)
 	var UTXOAddrMap = make(map[string]*wallet.KnownAddress)
 	for _, knownAddr := range wallets.KnownAddressMap {
-		tmpUTXList := bc.FindUnspentTransactions(knownAddr.Address, &knownAddr.PublicKey)
-		for _, tmpUTX := range tmpUTXList {
-			for outIdx, out := range tmpUTX.TxOutputList {
-				if out.BelongsTo(knownAddr.Address) {
-					allUTXOMap[string(tmpUTX.TxID)+strconv.Itoa(outIdx)] = tmpUTX
-					UTXOAddrMap[string(tmpUTX.TxID)+strconv.Itoa(outIdx)] = knownAddr
-				}
-			}
+		tmpUTXOSet := utxoSet.Addr2UTXO[string(knownAddr.Address)]
+		for _, tmpUTXO := range tmpUTXOSet {
+			allUTXOMap[string(tmpUTXO.SourceTxID)+strconv.Itoa(tmpUTXO.TxOutputIdx)] = tmpUTXO
+			UTXOAddrMap[string(tmpUTXO.SourceTxID)+strconv.Itoa(tmpUTXO.TxOutputIdx)] = knownAddr
 		}
 	}
 	// check transactions
@@ -192,7 +188,7 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 		inputSum := 0
 		for _, txInput := range tx.TxInputList {
 			// check whether the source TXO exists in UTXO set
-			sourceTx, exists := allUTXOMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)]
+			sourceTXO, exists := allUTXOMap[string(txInput.SourceTxID)+strconv.Itoa(txInput.TxOutputIdx)]
 			if !exists {
 				return utils.SourceTXONotFound
 			}
@@ -208,7 +204,7 @@ func (bc *BlockChain) ValidateBlock(block *blocks.Block) utils.BlockStatus {
 				return utils.DoubleSpending
 			}
 			// accumulate to inputSum
-			inputSum += sourceTx.TxOutputList[txInput.TxOutputIdx].Value
+			inputSum += sourceTXO.Value
 		}
 		// check if sum of input is equal to sum of output
 		outputSum := 0

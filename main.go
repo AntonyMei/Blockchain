@@ -1,19 +1,19 @@
 package main
 
 import (
-	"os"
-	"time"
 	"bufio"
 	"fmt"
-	"strconv"
 	"github.com/AntonyMei/Blockchain/config"
 	"github.com/AntonyMei/Blockchain/src/blockchain"
 	"github.com/AntonyMei/Blockchain/src/cli"
 	"github.com/AntonyMei/Blockchain/src/network"
+	"github.com/AntonyMei/Blockchain/src/test"
 	"github.com/AntonyMei/Blockchain/src/transaction"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"github.com/AntonyMei/Blockchain/src/wallet"
-	"github.com/AntonyMei/Blockchain/src/test"
+	"os"
+	"strconv"
+	"time"
 )
 
 func main() {
@@ -68,7 +68,7 @@ func runCli() {
 	commandLine.Loop(reader)
 }
 
-func test_network_bytes() {	
+func test_network_bytes() {
 	num_nodes, _ := strconv.Atoi(os.Args[1])
 	node_id, _ := strconv.Atoi(os.Args[2])
 	test.Test_Network_Data_Bytes(num_nodes, node_id, 50, 1)
@@ -104,13 +104,13 @@ func test_network() {
 	if chain == nil {
 		chain = blockchain.InitBlockChain(wallets, agent)
 	}
-	meta := network.NetworkMetaData{Ip:"localhost", Port:ports[agent]}
+	meta := network.NetworkMetaData{Ip: "localhost", Port: ports[agent]}
 	// agent_meta := network.UserMetaData{Name:agent, PublicKey: agentWallet.PublicKey, WalletAddr: agentAddr}
 	node := network.InitializeNode(wallets, chain, meta)
 	node.Serve()
-	
+
 	if agent == "Bob" || agent == "Charlie" || agent == "David" {
-		alice_meta := network.NetworkMetaData{Ip:"localhost", Port:ports["Alice"]}
+		alice_meta := network.NetworkMetaData{Ip: "localhost", Port: ports["Alice"]}
 		node.SendPingMessage(alice_meta, chain.BlockHeight)
 	}
 
@@ -168,10 +168,11 @@ func test_network_tx() {
 	}
 }
 
-func test_local() {
-	println("Wallet Test")
+func TestLocal() {
+	println("Local test")
 	// initialize wallets
 	wallets, err := wallet.InitializeWallets("Alice")
+	utxoSet, _ := blockchain.InitUTXOSet("Alice")
 	var aliceAddr, bobAddr, charlieAddr, davidAddr []byte
 	var aliceWallet, bobWallet, charlieWallet, davidWallet *wallet.Wallet
 	if err != nil {
@@ -204,19 +205,36 @@ func test_local() {
 
 	// starts a chain / continues from last chain
 	chain := blockchain.InitBlockChain(wallets, "Alice")
+
 	// alice mines two blocks
-	chain.AddBlock(chain.MineBlock(aliceAddr, "Alice 1", []*transaction.Transaction{}))
-	chain.AddBlock(chain.MineBlock(aliceAddr, "Alice 2", []*transaction.Transaction{}))
+	// block 0
+	block0 := chain.MineBlock(aliceAddr, "Alice 1", []*transaction.Transaction{})
+	chain.AddBlock(block0, utxoSet)
+	utxoSet.DumpBlock(block0)
+	// block 1
+	block1 := chain.MineBlock(aliceAddr, "Alice 2", []*transaction.Transaction{})
+	chain.AddBlock(block1, utxoSet)
+	utxoSet.DumpBlock(block1)
+
 	// bob comes in and mine another block
-	chain.AddBlock(chain.MineBlock(bobAddr, "Bob 1", []*transaction.Transaction{}))
+	block2 := chain.MineBlock(bobAddr, "Bob 1", []*transaction.Transaction{})
+	chain.AddBlock(block2, utxoSet)
+	utxoSet.DumpBlock(block2)
+
 	// Alice pays bob 30 in the next block
 	tx1 := chain.GenerateTransaction(aliceWallet, [][]byte{bobAddr}, []int{30})
-	chain.AddBlock(chain.MineBlock(bobAddr, "Bob records that Alice pays Bob 30.", []*transaction.Transaction{tx1}))
+	block3 := chain.MineBlock(bobAddr, "Bob records that Alice pays Bob 30.", []*transaction.Transaction{tx1})
+	chain.AddBlock(block3, utxoSet)
+	utxoSet.DumpBlock(block3)
+
 	// Alice gives Bob 90, David 40, then Bob returns 60, Charlie logs this
 	tx2 := chain.GenerateTransaction(aliceWallet, [][]byte{bobAddr, davidAddr}, []int{90, 40})
 	tx3 := chain.GenerateTransaction(bobWallet, [][]byte{aliceAddr}, []int{60})
-	chain.AddBlock(chain.MineBlock(charlieAddr, "Charlie records that Alice gives Bob 90, David 40 and Bob returns 60.",
-		[]*transaction.Transaction{tx2, tx3}))
+	block4 := chain.MineBlock(charlieAddr, "Charlie records that Alice gives Bob 90, David 40 and Bob returns 60.",
+		[]*transaction.Transaction{tx2, tx3})
+	chain.AddBlock(block4, utxoSet)
+	utxoSet.DumpBlock(block4)
+
 	// At this point the balance should look like
 	// Alice:   100
 	// Bob:     260

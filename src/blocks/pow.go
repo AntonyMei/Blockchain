@@ -3,9 +3,12 @@ package blocks
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 	"github.com/AntonyMei/Blockchain/src/utils"
 	"math"
 	"math/big"
+	"runtime"
+	"time"
 )
 
 type ProofOfWorkWrapper struct {
@@ -21,24 +24,74 @@ func CreateProofOfWork(block *Block) *ProofOfWorkWrapper {
 	return pow
 }
 
+func FindNonce(pow *ProofOfWorkWrapper, workId int, totalWorker int,
+	resultChan chan int, killSigChan chan struct{}, workloadChan chan int) {
+	var intHash big.Int
+	var hash [32]byte
+	chunkSize := int64(math.MaxInt64 / totalWorker)
+	for nonce := int64(workId) * chunkSize; nonce < int64(workId+1)*chunkSize; {
+		select {
+		case <-killSigChan:
+			workloadChan <- int(nonce - int64(workId)*chunkSize)
+			return
+		default:
+			powData := bytes.Join([][]byte{pow.Block.PrevHash, pow.Block.Data,
+				pow.Block.GetTransactionsHash(),
+				utils.Int2Hex(int64(nonce)),
+				utils.Int2Hex(int64(pow.Block.Difficulty))}, []byte{})
+			hash = sha256.Sum256(powData)
+			intHash.SetBytes(hash[:])
+			if intHash.Cmp(pow.Target) == -1 {
+				resultChan <- int(nonce)
+				workloadChan <- int(nonce - int64(workId)*chunkSize)
+				return
+			} else {
+				nonce++
+			}
+		}
+	}
+}
+
 func (pow *ProofOfWorkWrapper) GenerateNonceHash() (int, []byte) {
+	// Spawn goroutines to find nonce
+	start := time.Now().UnixMilli()
+	cpuNum := runtime.NumCPU()
+	routineNum := int(math.Max(1, float64(cpuNum-4)))
+	resultChan := make(chan int)
+	workloadChan := make(chan int)
+	killSigChan := make(chan struct{})
+	defer close(resultChan)
+	for i := 0; i < routineNum; i++ {
+		go FindNonce(pow, i, routineNum, resultChan, killSigChan, workloadChan)
+	}
+	nonce := <-resultChan
+	close(killSigChan) // This will kill all go routines
+	end := time.Now().UnixMilli()
+
+	// calculate total work
+	totalWorkload := 0
+	for i := 0; i < routineNum; i++ {
+		workload := <-workloadChan
+		totalWorkload += workload
+	}
+
 	// return nonce, hash
 	var intHash big.Int
 	var hash [32]byte
-	for nonce := 0; nonce < math.MaxInt64; {
-		powData := bytes.Join([][]byte{pow.Block.PrevHash, pow.Block.Data,
-			pow.Block.GetTransactionsHash(),
-			utils.Int2Hex(int64(nonce)),
-			utils.Int2Hex(int64(pow.Block.Difficulty))}, []byte{})
-		hash = sha256.Sum256(powData)
-		intHash.SetBytes(hash[:])
-		if intHash.Cmp(pow.Target) == -1 {
-			return nonce, hash[:]
-		} else {
-			nonce++
-		}
+	powData := bytes.Join([][]byte{pow.Block.PrevHash, pow.Block.Data,
+		pow.Block.GetTransactionsHash(),
+		utils.Int2Hex(int64(nonce)),
+		utils.Int2Hex(int64(pow.Block.Difficulty))}, []byte{})
+	hash = sha256.Sum256(powData)
+	intHash.SetBytes(hash[:])
+	if intHash.Cmp(pow.Target) == -1 {
+		// a million hash per second
+		hashRate := (float64(totalWorkload) / math.Max(float64(end-start), 1)) / 1000
+		fmt.Printf("Hash rate: %fMH/s.\n", hashRate)
+		return nonce, hash[:]
+	} else {
+		panic("Wrong nonce returned by worker!")
 	}
-	panic("Nonce not found")
 }
 
 func (pow *ProofOfWorkWrapper) ValidateNonce() bool {
