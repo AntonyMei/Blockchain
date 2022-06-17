@@ -47,7 +47,7 @@ func InitBlockChain(wallets *wallet.Wallets, userName string) *BlockChain {
 			verifyResult := blockchain.ValidateBlock(genesis, nil)
 			blockchain.LastHash = genesis.Hash[:]
 			blockchain.BlockHeight = genesis.Height
-			fmt.Printf("Verify genesis: %v.\n", verifyResult.String())
+			fmt.Printf("Verify genesis: %v %x.\n", verifyResult.String(), genesis.Hash)
 			err = txn.Set(genesis.Hash, genesis.Serialize())
 			utils.Handle(err)
 			err = txn.Set([]byte("lasthash"), genesis.Hash)

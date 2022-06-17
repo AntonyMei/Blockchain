@@ -85,12 +85,19 @@ type Transaction struct {
 	TxID         []byte
 	TxInputList  []TxInput
 	TxOutputList []TxOutput
-	Str            string // a meaningless string only for making the transaction large (test network bytes use)
+	//Str            string // a meaningless string only for making the transaction large (test network bytes use)
 }
 
 func (tx *Transaction) SetID() {
 	// set TxID as hash value of serialized Transaction
 	// serialize tx into byte stream
+	/* turn on when testing network data transfer
+	b := make([]rune, 10000)
+	for i := range b {
+		b[i] = rune('a')
+	}
+	tx.Str = string(b)*/
+	//tx.Str = ""
 	var raw []byte
 	for _, input := range tx.TxInputList {
 		raw = bytes.Join([][]byte{raw, input.Serialize()}, []byte{})
@@ -102,12 +109,6 @@ func (tx *Transaction) SetID() {
 	var hash [32]byte
 	hash = sha256.Sum256(raw)
 	tx.TxID = hash[:]
-	/* turn on when testing network data transfer
-	b := make([]rune, 10000)
-	for i := range b {
-		b[i] = rune('a')
-	}
-	tx.Str = string(b)*/
 	tx.Log2Terminal()
 }
 
@@ -136,7 +137,7 @@ func CoinbaseTx(minerAddr []byte) *Transaction {
 	// to identify different coinbase TXes, we add randomness to initial TxID
 	token := make([]byte, 32)
 	_, _ = rand.Read(token)
-	transaction := Transaction{token, []TxInput{input}, []TxOutput{output}, ""}
+	transaction := Transaction{token, []TxInput{input}, []TxOutput{output}}
 	transaction.SetID()
 	return &transaction
 }
