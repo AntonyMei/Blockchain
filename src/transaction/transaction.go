@@ -26,6 +26,11 @@ func (txo *TxOutput) Log2Terminal() {
 	fmt.Printf("[TX Output] Give %v coins to account %x.\n", txo.Value, txo.Address)
 }
 
+func (txo *TxOutput) Serialize() []byte {
+	serialized := bytes.Join([][]byte{txo.Address, utils.Int2Hex(int64(txo.Value))}, []byte{})
+	return serialized
+}
+
 type TxInput struct {
 	// SourceTxID: ID of source Transaction
 	// TxOutputIdx: index of source TxOutput in source Transaction
@@ -69,6 +74,12 @@ func (source *TxInput) Log2Terminal() {
 		source.TxOutputIdx, source.SourceTxID)
 }
 
+func (source *TxInput) Serialize() []byte {
+	serialized := bytes.Join([][]byte{source.SourceTxID, utils.Int2Hex(int64(source.TxOutputIdx)),
+		[]byte(source.Sig)}, []byte{})
+	return serialized
+}
+
 type Transaction struct {
 	// Note that each address can appear at most once in the output list
 	TxID         []byte
@@ -78,12 +89,17 @@ type Transaction struct {
 
 func (tx *Transaction) SetID() {
 	// set TxID as hash value of serialized Transaction
-	var encoded bytes.Buffer
+	// serialize tx into byte stream
+	var raw []byte
+	for _, input := range tx.TxInputList {
+		raw = bytes.Join([][]byte{raw, input.Serialize()}, []byte{})
+	}
+	for _, output := range tx.TxOutputList {
+		raw = bytes.Join([][]byte{raw, output.Serialize()}, []byte{})
+	}
+	// set TxID
 	var hash [32]byte
-	encoder := gob.NewEncoder(&encoded)
-	err := encoder.Encode(tx)
-	utils.Handle(err)
-	hash = sha256.Sum256(encoded.Bytes())
+	hash = sha256.Sum256(raw)
 	tx.TxID = hash[:]
 }
 
