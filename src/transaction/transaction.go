@@ -109,7 +109,7 @@ func (tx *Transaction) SetID() {
 	var hash [32]byte
 	hash = sha256.Sum256(raw)
 	tx.TxID = hash[:]
-	tx.Log2Terminal()
+	//tx.Log2Terminal()
 }
 
 func (tx *Transaction) IsCoinbase() bool {
